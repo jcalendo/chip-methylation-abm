@@ -10,10 +10,13 @@ start of the simulation. With each step of the simulation, every CpG has a p_met
 randomly gaining methylation (being flipped from a 0 -> 1). At a certain age (chip_time), one of
 the Cells is randomly chosen to become a Clone. At every step after, the Clones can divide one of
 three mutaully exclusive ways; symmetric self renewal, symmetric differentiation, or asymmetric
-division. When a new Clone is created by one of the division strategies a Cell is randomly chosen
-to be removed from the simulation. Thus, the population size throughout the simulation stays
-constant. During the simulation heterogeniety metrics are computed for each agent and across the
-entire model. These metrics are saved as compressed .csv files.
+division. NOTE: the probability of asymetric division is computed from 
+p_asym = 1.0 - (p_sym_renew + p_sym_diff) and not given explicitly. When a new Clone is created 
+by one of the division strategies a Cell is randomly chosen to be removed from the simulation. Thus, 
+the population size throughout the simulation stays constant. During the simulation heterogeniety 
+metrics are computed for each agent and across the entire model. These metrics are saved as 
+compressed .csv files.
+
 
 TODO:
 
@@ -25,14 +28,14 @@ TODO:
 - Select Cells for CHIP induction (i.e. Pick the Cell with the highest methylation at chip_time)
 
 """
-
+from datetime import datetime
 from model import AgingModel
 
 
 def main():
 
-    N_AGENTS = 100
-    N_GENES = 1000
+    N_AGENTS = 1_000
+    N_GENES = 500
     N_CPGS = 10
     P_METH = 1e-3
     P_UNMETH = 1e-6
@@ -54,8 +57,11 @@ def main():
     )
 
     print(f"Running simulation for {STEPS} steps...")
+    start_time = datetime.now()
     model.run_for(STEPS)
-    print("Simulation complete!\n")
+    end_time = datetime.now()
+    time_difference = (end_time - start_time).total_seconds()
+    print(f"Simulation Complete!\nExecution time: {time_difference:.1f}s")
 
     model_df = model.datacollector.get_model_vars_dataframe()
     agent_df = model.datacollector.get_agent_vars_dataframe()

@@ -73,7 +73,6 @@ class Clone(mesa.Agent):
                     self.n_cpgs,
                     self.p_meth,
                     self.p_unmeth,
-                    self.p_asym,
                     self.p_sym_renew,
                     self.p_sym_diff,
                 )

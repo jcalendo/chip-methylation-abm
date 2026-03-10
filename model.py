@@ -70,7 +70,7 @@ class AgingModel(mesa.Model):
                     if len(m.agents.select(agent_type=Clone)) > 0
                     else np.nan
                 ),
-                "Methylation_Variance": lambda m: (
+                "Overall_Methylation_Variance": lambda m: (
                     np.var([mean_methylation(a) for a in m.agents], ddof=1)
                     if len(m.agents) > 1
                     else np.nan

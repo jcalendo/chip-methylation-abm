@@ -23,7 +23,7 @@ def parse_arguments():
     parser.add_argument(
         "--p_meth",
         type=float,
-        default=1e-3,
+        default=1e-2,
         help="Probability of an unmethylated CpG becoming methylated per step.",
     )
     parser.add_argument(
@@ -84,8 +84,8 @@ def main():
     model_df = model.datacollector.get_model_vars_dataframe()
     agent_df = model.datacollector.get_agent_vars_dataframe()
 
-    model_df.to_csv("model_results.csv.gz", compression="gzip")
-    agent_df.to_csv("agent_results.csv.gz", compression="gzip")
+    model_df.to_csv("results/model_results.csv.gz", compression="gzip")
+    agent_df.to_csv("results/agent_results.csv.gz", compression="gzip")
 
 
 if __name__ == "__main__":

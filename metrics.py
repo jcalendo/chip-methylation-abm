@@ -72,3 +72,51 @@ def gini(agent):
     gmd = 2 * np.sum(weights * sorted_betas) / (n**2)
 
     return gmd
+
+
+def population_jsd(model):
+    """
+    Measures how much the agents' distributions diverge from the population consensus.
+    High value = highly heterogeneous population.
+    Low value = homogeneous population.
+    """
+    if len(model.agents) < 2:
+        return np.nan
+
+    agent_freqs = [pattern_freq(a) for a in model.agents]
+    centroid = np.mean(agent_freqs, axis=0)
+    jsd_vals = [jensenshannon(freq, centroid) ** 2 for freq in agent_freqs]
+
+    return np.mean(jsd_vals)
+
+
+def subpopulation_jsd(agentset):
+    """Calculates JSD for a specific subset of agents."""
+    if len(agentset) < 2:
+        return np.nan
+
+    agent_freqs = [pattern_freq(a) for a in agentset]
+    centroid = np.mean(agent_freqs, axis=0)
+    jsd_vals = [jensenshannon(freq, centroid) ** 2 for freq in agent_freqs]
+
+    return np.mean(jsd_vals)
+
+
+def population_jsd_unmeth(agentset):
+    """
+    Compute the JSD of the population's average distribution
+    against a completely unmethylated reference.
+    Measures overall epigenetic drift from a ground state.
+    """
+    if len(agentset) == 0:
+        return np.nan
+
+    agent_freqs = [pattern_freq(a) for a in agentset]
+
+    centroid = np.mean(agent_freqs, axis=0)
+
+    first_agent = next(iter(agentset))
+    ref_vec = np.zeros(first_agent.n_cpgs + 1)
+    ref_vec[0] = 1.0
+
+    return jensenshannon(centroid, ref_vec) ** 2

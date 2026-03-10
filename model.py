@@ -1,7 +1,16 @@
 import mesa
 import numpy as np
 from agents import Cell, Clone
-from metrics import mean_methylation, jsd_unmeth, mean_shannon, beta_var, gini
+from metrics import (
+    mean_methylation,
+    jsd_unmeth,
+    mean_shannon,
+    beta_var,
+    gini,
+    population_jsd,
+    subpopulation_jsd,
+    population_jsd_unmeth,
+)
 
 
 class AgingModel(mesa.Model):
@@ -60,6 +69,44 @@ class AgingModel(mesa.Model):
                     np.mean(m.agents.select(agent_type=Clone).get("cpgs"))
                     if len(m.agents.select(agent_type=Clone)) > 0
                     else np.nan
+                ),
+                "Methylation_Variance": lambda m: (
+                    np.var([mean_methylation(a) for a in m.agents], ddof=1)
+                    if len(m.agents) > 1
+                    else np.nan
+                ),
+                "Cell_Methylation_Variance": lambda m: (
+                    np.var(
+                        [mean_methylation(a) for a in m.agents.select(agent_type=Cell)],
+                        ddof=1,
+                    )
+                    if len(m.agents.select(agent_type=Cell)) > 1
+                    else np.nan
+                ),
+                "Clone_Methylation_Variance": lambda m: (
+                    np.var(
+                        [
+                            mean_methylation(a)
+                            for a in m.agents.select(agent_type=Clone)
+                        ],
+                        ddof=1,
+                    )
+                    if len(m.agents.select(agent_type=Clone)) > 1
+                    else np.nan
+                ),
+                "Overall_Population_JSD": population_jsd,
+                "Cell_Population_JSD": lambda m: subpopulation_jsd(
+                    m.agents.select(agent_type=Cell)
+                ),
+                "Clone_Population_JSD": lambda m: subpopulation_jsd(
+                    m.agents.select(agent_type=Clone)
+                ),
+                "Overall_Drift_JSD": lambda m: population_jsd_unmeth(m.agents),
+                "Cell_Drift_JSD": lambda m: population_jsd_unmeth(
+                    m.agents.select(agent_type=Cell)
+                ),
+                "Clone_Drift_JSD": lambda m: population_jsd_unmeth(
+                    m.agents.select(agent_type=Clone)
                 ),
             },
         )

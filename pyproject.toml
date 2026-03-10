@@ -1,9 +1,9 @@
 [project]
 name = "chip-simulation"
 version = "0.1.0"
-description = "Add your description here"
+description = "Agent based model of CHIP and methylation heterogeneity"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = "==3.13.*"
 dependencies = [
     "memory-profiler>=0.61.0",
     "mesa[rec]>=3.5.0",

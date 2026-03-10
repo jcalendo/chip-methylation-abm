@@ -1,37 +1,34 @@
-"""
-Run a test simulation. Save results in a gzipped compressed csv file. I'd rather plot data in R...
-"""
-
-import gzip
-
-from datetime import datetime
 from model import AgingModel
-
- 
-CELLS = 1_000
-CPGS = 10
-GENES = 1_000
-P_METH = 1e-3
-P_UNMETH = 1e-6
-STEPS = 100
 
 
 def main():
-    model = AgingModel(n_agents=CELLS, n_cpgs=CPGS, n_genes=GENES, p_meth=P_METH, p_unmeth=P_UNMETH)
+    N_AGENTS = 100
+    N_GENES = 100
+    N_CPGS = 10
+    P_METH = 1e-3
+    P_UNMETH = 1e-6
+    CHIP_TIME = 50
+    STEPS = 100
+
+    print("Initializing the Aging Model...")
+    model = AgingModel(
+        n_agents=N_AGENTS,
+        n_genes=N_GENES,
+        n_cpgs=N_CPGS,
+        p_meth=P_METH,
+        p_unmeth=P_UNMETH,
+        chip_time=CHIP_TIME
+    )
+
+    print(f"Running simulation for {STEPS} steps...")
     model.run_for(STEPS)
+    print("Simulation complete!\n")
 
-    df = model.datacollector.get_agent_vars_dataframe()
+    model_df = model.datacollector.get_model_vars_dataframe()
+    agent_df = model.datacollector.get_agent_vars_dataframe()
 
-    # Write agent-level results to compressed csv file
-    # Add a comment line to the csv header indicating run parameters
-    fname = f"results/{datetime.now().strftime("%Y%m%d-%H%M%S")}_results.csv.gz"
-    comment = f"# Cells: {CELLS}, CpGs: {CPGS}, Genes: {GENES}, P_meth: {P_METH}, P_unmeth: {P_UNMETH}\n"
-    with gzip.open(fname, "wt") as outfile:
-        outfile.write(comment)
-
-    with gzip.open(fname, "at") as outfile:
-        df.to_csv(outfile)
-
+    model_df.to_csv("model_results.csv.gz", compression="gzip")
+    agent_df.to_csv("agent_results.csv.gz", compression="gzip")
 
 if __name__ == "__main__":
     main()

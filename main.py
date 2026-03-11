@@ -6,19 +6,36 @@ from model import AgingModel
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description="Run the CHIP Methylation Agent-Based Model."
+        description="Run the CHIP Methylation Agent-Based Model.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
+
+    # Model arguments
     parser.add_argument(
         "--n_agents",
         type=int,
         default=1_000,
-        help="Total number of cells in the niche (constant population size).",
+        help="Total number of cells (constant population size).",
     )
     parser.add_argument(
-        "--n_genes", type=int, default=500, help="Number of genes (rows) per agent."
+        "--steps",
+        type=int,
+        default=100,
+        help="Total number of steps (years) to run the simulation.",
     )
     parser.add_argument(
-        "--n_cpgs", type=int, default=10, help="Number of CpGs (columns) per gene."
+        "--chip_time",
+        type=int,
+        default=50,
+        help="Step (year) at which the first mutant Clone is introduced.",
+    )
+
+    # Cell arguments
+    parser.add_argument(
+        "--n_genes", type=int, default=500, help="Number of genes (rows of CpG matrix) per agent."
+    )
+    parser.add_argument(
+        "--n_cpgs", type=int, default=10, help="Number of CpGs (columns od CpG matrix) per gene."
     )
     parser.add_argument(
         "--p_meth",
@@ -32,17 +49,19 @@ def parse_arguments():
         default=1e-6,
         help="Probability of a methylated CpG becoming unmethylated per step.",
     )
+
+    # Clone arguments
     parser.add_argument(
-        "--chip_time",
+        "--p_meth_clone",
         type=float,
-        default=50.0,
-        help="Step at which the first mutant Clone is introduced.",
+        default=1e-2,
+        help="Probability of an unmethylated CpG becoming methylated per step in Clones.",
     )
     parser.add_argument(
-        "--steps",
-        type=int,
-        default=100,
-        help="Total number of steps to run the simulation.",
+        "--p_unmeth_clone",
+        type=float,
+        default=1e-6,
+        help="Probability of a methylated CpG becoming unmethylated per step in Clones.",
     )
     parser.add_argument(
         "--p_renew",
@@ -69,6 +88,8 @@ def main():
         n_cpgs=args.n_cpgs,
         p_meth=args.p_meth,
         p_unmeth=args.p_unmeth,
+        p_meth_clone=args.p_meth_clone,
+        p_unmeth_clone=args.p_unmeth_clone,        
         chip_time=args.chip_time,
         p_sym_renew=args.p_renew,
         p_sym_diff=args.p_diff,

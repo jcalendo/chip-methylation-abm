@@ -1,3 +1,8 @@
+#!/usr/bin/env Rscript --vanilla
+#
+# Create plots of metrics computed across the entire model
+#
+# ------------------------------------------------------------------------------------------------
 suppressPackageStartupMessages(library(here))
 suppressPackageStartupMessages(library(data.table))
 suppressPackageStartupMessages(library(ggplot2))
@@ -88,17 +93,22 @@ plot_metric <- function(dt, ...) {
     theme(legend.position = "bottom")
 }
 
-wrap_plots(
+p <- wrap_plots(
   plot_metric(count_dt, title = "Cell Counts", y = "Number of Agents") +
     guides(color = "none"),
-  plot_metric(meth_dt, title = "Mean Methylation", y = "Mean Methylation"),
+  plot_metric(
+    meth_dt,
+    title = "Mean Methylation",
+    y = "Mean Methylation (beta-value)"
+  ),
   plot_metric(drift_dt, title = "Population JSD (Drift)", y = "JSD"),
   ncol = 3
 ) +
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 ggsave(
-  here("results", "model_results.png"),
+  filename = here("results", "model_results.png"),
+  plot = p,
   width = 18,
   height = 6,
   dpi = 600

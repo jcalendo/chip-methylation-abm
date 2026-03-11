@@ -21,6 +21,8 @@ class AgingModel(mesa.Model):
         n_cpgs,
         p_meth,
         p_unmeth,
+        p_meth_clone,
+        p_unmeth_clone,
         chip_time,
         p_sym_renew,
         p_sym_diff,
@@ -31,8 +33,11 @@ class AgingModel(mesa.Model):
         self.n_cpgs = n_cpgs
         self.p_meth = p_meth
         self.p_unmeth = p_unmeth
+        self.p_meth_clone = p_meth_clone
+        self.p_unmeth_clone = p_unmeth_clone
         self.p_sym_renew = p_sym_renew
         self.p_sym_diff = p_sym_diff
+        self.chip_time = chip_time
 
         Cell.create_agents(
             model=self,
@@ -43,7 +48,7 @@ class AgingModel(mesa.Model):
             p_unmeth=p_unmeth,
         )
 
-        self.schedule_event(self.trigger_chip, at=chip_time)
+        self.schedule_event(self.trigger_chip_highest_meth, at=chip_time)
 
         self.datacollector = mesa.DataCollector(
             agent_reporters={
@@ -111,7 +116,7 @@ class AgingModel(mesa.Model):
             },
         )
 
-    def trigger_chip(self):
+    def trigger_chip_random(self):
         """Selects a random Cell, copies its state to a new Clone, and removes the Cell."""
         cell_agents = self.agents.select(agent_type=Cell)
 
@@ -121,8 +126,27 @@ class AgingModel(mesa.Model):
                 self,
                 self.n_genes,
                 self.n_cpgs,
-                self.p_meth,
-                self.p_unmeth,
+                self.p_meth_clone,
+                self.p_unmeth_clone,
+                self.p_sym_renew,
+                self.p_sym_diff,
+            )
+            new_clone.cpgs = target_cell.cpgs.copy()
+            target_cell.remove()
+
+    def trigger_chip_highest_meth(self):
+        """Select the highest methylated Cell as the new Clone"""
+        cell_agents = self.agents.select(agent_type=Cell)
+
+        if cell_agents and len(cell_agents) > 0:
+            sorted_cells = cell_agents.sort(key=mean_methylation, ascending=False)
+            target_cell = sorted_cells[0]
+            new_clone = Clone(
+                self,
+                self.n_genes,
+                self.n_cpgs,
+                self.p_meth_clone,
+                self.p_unmeth_clone,
                 self.p_sym_renew,
                 self.p_sym_diff,
             )

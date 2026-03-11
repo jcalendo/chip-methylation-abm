@@ -1,6 +1,7 @@
 suppressPackageStartupMessages(library(here))
 suppressPackageStartupMessages(library(data.table))
-suppressPackageStartupMessages(library(tinyplot))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(patchwork))
 
 
 # Read in and clean data -------------------------------------------------------------------------
@@ -27,6 +28,7 @@ meth_dt <- melt(
   ),
   variable.factor = FALSE
 )
+meth_dt[is.na(value), value := 0.0]
 meth_dt[, variable := gsub("_Mean_Methylation", "", variable)]
 
 # Variance of mean methylation
@@ -41,7 +43,7 @@ var_dt <- melt(
   variable.factor = FALSE
 )
 var_dt[, variable := gsub("_Methylation_Variance", "", variable)]
-jsd_dt[is.na(value), value := 0.0]
+var_dt[is.na(value), value := 0.0]
 
 # JSD of the population
 jsd_dt <- melt(
@@ -71,28 +73,33 @@ drift_dt[is.na(value), value := 0.0]
 # Plot --------------------------------------------------------------------------------------------
 
 plot_metric <- function(dt, ...) {
-  plt(
-    value ~ V1 | variable,
-    data = dt,
-    xlab = "Step",
-    type = "l",
-    theme = "clean2",
-    legend = legend("bottom!", title = ""),
-    ...
-  )
+  ggplot(dt, aes(x = V1, y = value, color = variable)) +
+    geom_line(linewidth = 1.5) +
+    scale_x_continuous(n.breaks = 10) +
+    scale_color_manual(
+      values = c(
+        "Cell" = "orange",
+        "Clone" = "cornflowerblue",
+        "Overall" = "red2"
+      )
+    ) +
+    labs(x = "Step", color = "Cell Type", ...) +
+    coriell::theme_coriell() +
+    theme(legend.position = "bottom")
 }
 
-png(
-  here("results", "model-metrics.png"),
-  width = 20,
-  height = 12,
-  units = "in",
-  res = 600
+wrap_plots(
+  plot_metric(count_dt, title = "Cell Counts", y = "Number of Agents") +
+    guides(color = "none"),
+  plot_metric(meth_dt, title = "Mean Methylation", y = "Mean Methylation"),
+  plot_metric(drift_dt, title = "Population JSD (Drift)", y = "JSD"),
+  ncol = 3
+) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+ggsave(
+  here("results", "model_results.png"),
+  width = 18,
+  height = 6,
+  dpi = 600
 )
-tpar(mfrow = c(2, 3))
-plot_metric(count_dt, main = "Cell Counts", ylab = "Number of Agents")
-plot_metric(meth_dt, main = "Mean Methylation", ylab = "Mean Methylation")
-plot_metric(var_dt, main = "Methylation Variance", ylab = "Variance")
-plot_metric(jsd_dt, main = "Population JSD", ylab = "JSD")
-plot_metric(drift_dt, main = "Population JSD (Drift)", ylab = "JSD")
-dev.off()

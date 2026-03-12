@@ -72,6 +72,12 @@ def parse_arguments():
         default=1e-6,
         help="Probability of a methylated CpG becoming unmethylated per step.",
     )
+    parser.add_argument(
+        "--init_meth",
+        type=float,
+        default=0.0,
+        help="Initial proportion of CpGs that are methylated at the start of the simulation.",
+    )
 
     # Clone arguments
     parser.add_argument(
@@ -106,39 +112,55 @@ def parse_arguments():
         default="run_results.csv.gz",
         help="Filename to save run results DataFrame.",
     )
+    parser.add_argument(
+        "--quiet",
+        type=bool,
+        default=False,
+        help="Do not print program messages.",
+        action=argparse.BooleanOptionalAction,
+    )
 
     return parser.parse_args()
 
 
 def print_row(label, value):
+    """Helper funciton for formatting rows of banner"""
     print(f"│ {label:<35} | {str(value):<15} │")
 
 
-def main():
-    args = parse_arguments()
+def print_banner(args, width=55):
+    """Print a nice looking startup banner"""
 
-    width = 55
     print("┌" + "─" * width + "┐")
-    print("│" + "BEGINNING SIMULATION".center(width) + "│")
+    print("│" + "SIMULATION PARAMETERS".center(width) + "│")
     print("├" + "─" * width + "┤")
-    print_row("Number of replicate simulations", args.runs)
-    print_row("Agents", args.n_agents)
-    print_row("Steps", args.steps)
-    print_row("Genes", args.n_genes)
-    print_row("CpGs per Gene", args.n_cpgs)
+    print_row("Runs", args.runs)
+    print_row("Steps per run", args.steps)
+    print_row("Agents per run", args.n_agents)
+    print_row("Genes per agent", args.n_genes)
+    print_row("CpGs per gene", args.n_cpgs)
+    print_row("Initialized methylation proportion", args.init_meth)
     print_row("Cell Methylation probability", args.p_meth)
     print_row("Cell Unmethylation probability", args.p_unmeth)
-    print_row("Step at CHIP onset", args.chip_time)
+    print_row("Step of CHIP onset", args.chip_time)
     print_row("Clone Methylation probability", args.p_meth_clone)
     print_row("Clone Unmethylation probability", args.p_unmeth_clone)
     print_row("Clone duplication probability", args.p_duplicate)
     print_row("Clone removal probability", args.p_die)
     print("└" + "─" * width + "┘\n")
 
+
+def main():
+    args = parse_arguments()
+
+    if not args.quiet:
+        print_banner(args)
+
     params = {
         "n_agents": args.n_agents,
         "n_genes": args.n_genes,
         "n_cpgs": args.n_cpgs,
+        "init_meth": args.init_meth,
         "p_meth": args.p_meth,
         "p_unmeth": args.p_unmeth,
         "p_meth_clone": args.p_meth_clone,
@@ -159,15 +181,16 @@ def main():
         rng=rng_values,
         data_collection_period=1,
         max_steps=args.steps,
-        display_progress=True,
+        display_progress=not args.quiet,
     )
-    print("\nSimulation Complete!")
-    print(f"Writing results to {args.out_file}")
 
     results_df = pd.DataFrame(results)
     results_df.to_csv(args.out_file, index=False, compression="gzip")
 
-    print("Done.")
+    if not args.quiet:
+        print("\nSimulation Complete!")
+        print(f"Writing results to {args.out_file}")
+        print("Done.")
 
 
 if __name__ == "__main__":

@@ -4,17 +4,34 @@ import numpy as np
 
 class Cell(mesa.Agent):
     """
-    Initialize a Cell with a 2D gene x CpG array of all 0s. Every step determine if a CpG will flip
-    states based on the probability of methylating (p_meth) or unmethylating (p_unmeth).
+    Basic Cell class consists of a 2D gene x CpG numpy array populated with 0 or 1
+
+    Args:
+        n_genes: Number of genes (rows)
+        n_cpgs: Number of CpG sites per gene (columns)
+        p_meth: Probability of switching from a methylated state to an unmethylated CpG
+        p_unmeth: Probability of switching from an unmethylated state to a methylated CpG
+        init_meth: Proportion of methylated CpG sites in the initial state
     """
 
-    def __init__(self, model, n_genes, n_cpgs, p_meth, p_unmeth):
+    def __init__(self, model, n_genes, n_cpgs, p_meth, p_unmeth, init_meth):
         super().__init__(model)
         self.n_genes = n_genes
         self.n_cpgs = n_cpgs
         self.p_meth = p_meth
         self.p_unmeth = p_unmeth
-        self.cpgs = np.zeros((n_genes, n_cpgs), dtype=int)
+        self.init_meth = init_meth
+
+        # Determine the starting state of the Cell
+        if init_meth == 0:
+            self.cpgs = np.zeros((n_genes, n_cpgs), dtype=int)
+        else:
+            total_cpgs = n_genes * n_cpgs
+            num_ones = int(round(init_meth * total_cpgs))
+            num_zeros = total_cpgs - num_ones
+            arr = np.concatenate((np.ones(num_ones), np.zeros(num_zeros)))
+            np.random.shuffle(arr)
+            self.cpgs = arr.reshape((n_genes, n_cpgs)).astype(int)
 
     def methylate(self):
         """Apply random methylation to all CpGs and genes"""
@@ -26,7 +43,15 @@ class Cell(mesa.Agent):
 
 class Clone(mesa.Agent):
     """
-    A Clone divides according to cell division probabilities.
+    A Clone is a Cell that divides according to cell division probabilities.
+
+    Args:
+        n_genes: Number of genes (rows)
+        n_cpgs: Number of CpG sites per gene (columns)
+        p_meth: Probability of switching from a methylated state to an unmethylated CpG
+        p_unmeth: Probability of switching from an unmethylated state to a methylated CpG
+        p_duplicate: Probability of a clone creating a copy of itself and removing a random Cell
+        p_die: Probability of a clone dying and being replaced by a random Cell
     """
 
     def __init__(self, model, n_genes, n_cpgs, p_meth, p_unmeth, p_duplicate, p_die):
@@ -87,10 +112,15 @@ class Clone(mesa.Agent):
 
             if cell_agents and len(cell_agents) > 0:
                 parent_cell = self.random.choice(cell_agents)
-
-                daughter_cell = Cell(
-                    self.model, self.n_genes, self.n_cpgs, self.p_meth, self.p_unmeth
+                
+                # Register the new Cell 
+                Cell(
+                    self.model,
+                    parent_cell.n_genes,
+                    parent_cell.n_cpgs,
+                    parent_cell.p_meth,
+                    parent_cell.p_unmeth,
+                    parent_cell.init_meth,
                 )
 
-                daughter_cell.cpgs = parent_cell.cpgs.copy()
                 self.remove()

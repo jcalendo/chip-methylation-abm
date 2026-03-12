@@ -21,6 +21,7 @@ class AgingModel(mesa.Model):
         n_cpgs,
         p_meth,
         p_unmeth,
+        init_meth,
         p_meth_clone,
         p_unmeth_clone,
         chip_time,
@@ -34,6 +35,7 @@ class AgingModel(mesa.Model):
         self.n_cpgs = n_cpgs
         self.p_meth = p_meth
         self.p_unmeth = p_unmeth
+        self.init_meth = init_meth
         self.p_meth_clone = p_meth_clone
         self.p_unmeth_clone = p_unmeth_clone
         self.p_duplicate = p_duplicate
@@ -47,6 +49,7 @@ class AgingModel(mesa.Model):
             n_cpgs=n_cpgs,
             p_meth=p_meth,
             p_unmeth=p_unmeth,
+            init_meth=init_meth,
         )
 
         self.schedule_event(self.trigger_chip_highest_meth, at=chip_time)
@@ -136,7 +139,7 @@ class AgingModel(mesa.Model):
             target_cell.remove()
 
     def trigger_chip_highest_meth(self):
-        """Select the highest methylated Cell as the new Clone"""
+        """Select the Cell with the greatest mean methylation as the target Clone"""
         cell_agents = self.agents.select(agent_type=Cell)
 
         if cell_agents and len(cell_agents) > 0:

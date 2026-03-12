@@ -29,9 +29,7 @@ class Clone(mesa.Agent):
     A Clone divides according to cell division probabilities.
     """
 
-    def __init__(
-        self, model, n_genes, n_cpgs, p_meth, p_unmeth, p_duplicate, p_die
-    ):
+    def __init__(self, model, n_genes, n_cpgs, p_meth, p_unmeth, p_duplicate, p_die):
         super().__init__(model)
         self.n_genes = n_genes
         self.n_cpgs = n_cpgs
@@ -63,7 +61,7 @@ class Clone(mesa.Agent):
         # No net change
         if division_type == "neutral":
             pass
-        
+
         # Randomly chosen Cell gets replaced by a copy of the Clone
         elif division_type == "duplicate":
             cell_agents = self.model.agents_by_type.get(Cell)
@@ -82,7 +80,7 @@ class Clone(mesa.Agent):
 
                 target = self.random.choice(cell_agents)
                 target.remove()
-        
+
         # Clone 'dies' and gets replaced with a randomly chosen Cell
         elif division_type == "die":
             cell_agents = self.model.agents_by_type.get(Cell)

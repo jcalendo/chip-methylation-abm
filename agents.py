@@ -26,11 +26,11 @@ class Cell(mesa.Agent):
 
 class Clone(mesa.Agent):
     """
-    A Clone divides according to stem cell division probabilities.
+    A Clone divides according to cell division probabilities.
     """
 
     def __init__(
-        self, model, n_genes, n_cpgs, p_meth, p_unmeth, p_sym_renew, p_sym_diff
+        self, model, n_genes, n_cpgs, p_meth, p_unmeth, p_duplicate, p_die
     ):
         super().__init__(model)
         self.n_genes = n_genes
@@ -38,13 +38,13 @@ class Clone(mesa.Agent):
         self.p_meth = p_meth
         self.p_unmeth = p_unmeth
         self.cpgs = np.zeros((n_genes, n_cpgs), dtype=int)
-        self.p_sym_renew = p_sym_renew
-        self.p_sym_diff = p_sym_diff
-        self.p_asym = 1.0 - (p_sym_renew + p_sym_diff)
+        self.p_duplicate = p_duplicate
+        self.p_die = p_die
+        self.p_neutral = 1.0 - (p_duplicate + p_die)
 
-        if self.p_asym < 0.0 or self.p_asym > 1.0:
+        if self.p_neutral < 0.0 or self.p_neutral > 1.0:
             raise ValueError(
-                f"Invalid probabilities: p_sym_renew ({p_sym_renew}) + p_sym_diff ({p_sym_diff}) must be <= 1.0"
+                f"Invalid probabilities: p_duplicate ({p_duplicate}) + p_die ({p_die}) must be <= 1.0"
             )
 
     def methylate(self):
@@ -54,16 +54,18 @@ class Clone(mesa.Agent):
         self.cpgs ^= do_meth | do_unmeth
 
     def divide(self):
-        """Execute one of the three stem cell division types."""
+        """Execute one of the three cell division types."""
         division_type = np.random.choice(
-            ["asymmetric", "symmetric_renewal", "symmetric_differentiation"],
-            p=[self.p_asym, self.p_sym_renew, self.p_sym_diff],
+            ["neutral", "duplicate", "die"],
+            p=[self.p_neutral, self.p_duplicate, self.p_die],
         )
 
-        if division_type == "asymmetric":
+        # No net change
+        if division_type == "neutral":
             pass
-
-        elif division_type == "symmetric_renewal":
+        
+        # Randomly chosen Cell gets replaced by a copy of the Clone
+        elif division_type == "duplicate":
             cell_agents = self.model.agents_by_type.get(Cell)
 
             if cell_agents and len(cell_agents) > 0:
@@ -73,15 +75,16 @@ class Clone(mesa.Agent):
                     self.n_cpgs,
                     self.p_meth,
                     self.p_unmeth,
-                    self.p_sym_renew,
-                    self.p_sym_diff,
+                    self.p_duplicate,
+                    self.p_die,
                 )
                 daughter.cpgs = self.cpgs.copy()
 
                 target = self.random.choice(cell_agents)
                 target.remove()
-
-        elif division_type == "symmetric_differentiation":
+        
+        # Clone 'dies' and gets replaced with a randomly chosen Cell
+        elif division_type == "die":
             cell_agents = self.model.agents_by_type.get(Cell)
 
             if cell_agents and len(cell_agents) > 0:

@@ -40,7 +40,7 @@ def parse_arguments():
     parser.add_argument(
         "--p_meth",
         type=float,
-        default=1e-2,
+        default=0.01,
         help="Probability of an unmethylated CpG becoming methylated per step.",
     )
     parser.add_argument(
@@ -54,7 +54,7 @@ def parse_arguments():
     parser.add_argument(
         "--p_meth_clone",
         type=float,
-        default=1e-2,
+        default=0.01,
         help="Probability of an unmethylated CpG becoming methylated per step in Clones.",
     )
     parser.add_argument(
@@ -64,16 +64,16 @@ def parse_arguments():
         help="Probability of a methylated CpG becoming unmethylated per step in Clones.",
     )
     parser.add_argument(
-        "--p_renew",
+        "--p_duplicate",
         type=float,
-        default=0.45,
-        help="Probability of a Clone undergoing symmetric self-renewal.",
+        default=1.0,
+        help="Probability of a Clone duplicating.",
     )
     parser.add_argument(
-        "--p_diff",
+        "--p_die",
         type=float,
-        default=0.05,
-        help="Probability of a Clone undergoing symmetric differentiation.",
+        default=0.0,
+        help="Probability of a Clone being replaced by a Cell.",
     )
     return parser.parse_args()
 
@@ -91,8 +91,8 @@ def main():
         p_meth_clone=args.p_meth_clone,
         p_unmeth_clone=args.p_unmeth_clone,        
         chip_time=args.chip_time,
-        p_sym_renew=args.p_renew,
-        p_sym_diff=args.p_diff,
+        p_duplicate=args.p_duplicate,
+        p_die=args.p_die,
     )
 
     print(f"Running simulation for {args.steps} steps...")

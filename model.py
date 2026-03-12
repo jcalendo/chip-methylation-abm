@@ -24,8 +24,8 @@ class AgingModel(mesa.Model):
         p_meth_clone,
         p_unmeth_clone,
         chip_time,
-        p_sym_renew,
-        p_sym_diff,
+        p_duplicate,
+        p_die,
     ):
         super().__init__()
 
@@ -35,8 +35,8 @@ class AgingModel(mesa.Model):
         self.p_unmeth = p_unmeth
         self.p_meth_clone = p_meth_clone
         self.p_unmeth_clone = p_unmeth_clone
-        self.p_sym_renew = p_sym_renew
-        self.p_sym_diff = p_sym_diff
+        self.p_duplicate = p_duplicate
+        self.p_die = p_die
         self.chip_time = chip_time
 
         Cell.create_agents(
@@ -128,8 +128,8 @@ class AgingModel(mesa.Model):
                 self.n_cpgs,
                 self.p_meth_clone,
                 self.p_unmeth_clone,
-                self.p_sym_renew,
-                self.p_sym_diff,
+                self.p_duplicate,
+                self.p_die,
             )
             new_clone.cpgs = target_cell.cpgs.copy()
             target_cell.remove()
@@ -147,8 +147,8 @@ class AgingModel(mesa.Model):
                 self.n_cpgs,
                 self.p_meth_clone,
                 self.p_unmeth_clone,
-                self.p_sym_renew,
-                self.p_sym_diff,
+                self.p_duplicate,
+                self.p_die,
             )
             new_clone.cpgs = target_cell.cpgs.copy()
             target_cell.remove()

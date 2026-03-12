@@ -1,6 +1,9 @@
 import argparse
+import mesa
+import sys
+import numpy as np
+import pandas as pd
 
-from datetime import datetime
 from model import AgingModel
 
 
@@ -8,6 +11,20 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Run the CHIP Methylation Agent-Based Model.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    # Batch parameters
+    parser.add_argument(
+        "--runs",
+        type=int,
+        default=100,
+        help="Number of times to repeat the experiment.",
+    )
+    parser.add_argument(
+        "--n_proc",
+        type=int,
+        default=1,
+        help="Number of processes used for multiprocessing.",
     )
 
     # Model arguments
@@ -32,10 +49,16 @@ def parse_arguments():
 
     # Cell arguments
     parser.add_argument(
-        "--n_genes", type=int, default=500, help="Number of genes (rows of CpG matrix) per agent."
+        "--n_genes",
+        type=int,
+        default=500,
+        help="Number of genes (rows of CpG matrix) per agent.",
     )
     parser.add_argument(
-        "--n_cpgs", type=int, default=10, help="Number of CpGs (columns od CpG matrix) per gene."
+        "--n_cpgs",
+        type=int,
+        default=10,
+        help="Number of CpGs (columns od CpG matrix) per gene.",
     )
     parser.add_argument(
         "--p_meth",
@@ -81,32 +104,35 @@ def parse_arguments():
 def main():
     args = parse_arguments()
 
-    print("Initializing the Aging Model...")
-    model = AgingModel(
-        n_agents=args.n_agents,
-        n_genes=args.n_genes,
-        n_cpgs=args.n_cpgs,
-        p_meth=args.p_meth,
-        p_unmeth=args.p_unmeth,
-        p_meth_clone=args.p_meth_clone,
-        p_unmeth_clone=args.p_unmeth_clone,        
-        chip_time=args.chip_time,
-        p_duplicate=args.p_duplicate,
-        p_die=args.p_die,
+    params = {
+        "n_agents": args.n_agents,
+        "n_genes": args.n_genes,
+        "n_cpgs": args.n_cpgs,
+        "p_meth": args.p_meth,
+        "p_unmeth": args.p_unmeth,
+        "p_meth_clone": args.p_meth_clone,
+        "p_unmeth_clone": args.p_unmeth_clone,
+        "chip_time": args.chip_time,
+        "p_duplicate": args.p_duplicate,
+        "p_die": args.p_die,
+    }
+
+    # Initialize RNGs for all runs -- this is how iterations are specified
+    rng = np.random.default_rng(12345)
+    rng_values = rng.integers(0, sys.maxsize, size=(args.runs,)).tolist()
+
+    results = mesa.batch_run(
+        model_cls=AgingModel,
+        parameters=params,
+        number_processes=args.n_proc,
+        rng=rng_values,
+        data_collection_period=1,
+        max_steps=args.steps,
+        display_progress=True,
     )
 
-    print(f"Running simulation for {args.steps} steps...")
-    start_time = datetime.now()
-    model.run_for(args.steps)
-    end_time = datetime.now()
-    time_difference = (end_time - start_time).total_seconds()
-    print(f"Simulation Complete!\nExecution time: {time_difference:.1f}s")
-
-    model_df = model.datacollector.get_model_vars_dataframe()
-    agent_df = model.datacollector.get_agent_vars_dataframe()
-
-    model_df.to_csv("results/model_results.csv.gz", compression="gzip")
-    agent_df.to_csv("results/agent_results.csv.gz", compression="gzip")
+    results_df = pd.DataFrame(results)
+    results_df.to_csv("results/run_results.csv.gz", index=False, compression="gzip")
 
 
 if __name__ == "__main__":

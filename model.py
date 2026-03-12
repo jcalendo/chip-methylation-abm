@@ -26,8 +26,9 @@ class AgingModel(mesa.Model):
         chip_time,
         p_duplicate,
         p_die,
+        rng=None,
     ):
-        super().__init__()
+        super().__init__(rng=rng)
 
         self.n_genes = n_genes
         self.n_cpgs = n_cpgs
@@ -51,14 +52,14 @@ class AgingModel(mesa.Model):
         self.schedule_event(self.trigger_chip_highest_meth, at=chip_time)
 
         self.datacollector = mesa.DataCollector(
-            agent_reporters={
-                "Agent_Type": lambda a: type(a).__name__,
-                "Mean_Methylation": mean_methylation,
-                "JSD_Unmeth": jsd_unmeth,
-                "Shannon": mean_shannon,
-                "Beta_Variance": beta_var,
-                "Gini": gini,
-            },
+            # agent_reporters={
+            #     "Agent_Type": lambda a: type(a).__name__,
+            #     "Mean_Methylation": mean_methylation,
+            #     "JSD_Unmeth": jsd_unmeth,
+            #     "Shannon": mean_shannon,
+            #     "Beta_Variance": beta_var,
+            #     "Gini": gini,
+            # },
             model_reporters={
                 "Cell_Count": lambda m: len(m.agents.select(agent_type=Cell)),
                 "Clone_Count": lambda m: len(m.agents.select(agent_type=Clone)),

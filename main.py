@@ -110,8 +110,30 @@ def parse_arguments():
     return parser.parse_args()
 
 
+def print_row(label, value):
+    print(f"│ {label:<35} | {str(value):<15} │")
+
+
 def main():
     args = parse_arguments()
+
+    width = 55
+    print("┌" + "─" * width + "┐")
+    print("│" + "BEGINNING SIMULATION".center(width) + "│")
+    print("├" + "─" * width + "┤")
+    print_row("Number of replicate simulations", args.runs)
+    print_row("Agents", args.n_agents)
+    print_row("Steps", args.steps)
+    print_row("Genes", args.n_genes)
+    print_row("CpGs per Gene", args.n_cpgs)
+    print_row("Cell Methylation probability", args.p_meth)
+    print_row("Cell Unmethylation probability", args.p_unmeth)
+    print_row("Step at CHIP onset", args.chip_time)
+    print_row("Clone Methylation probability", args.p_meth_clone)
+    print_row("Clone Unmethylation probability", args.p_unmeth_clone)
+    print_row("Clone duplication probability", args.p_duplicate)
+    print_row("Clone removal probability", args.p_die)
+    print("└" + "─" * width + "┘\n")
 
     params = {
         "n_agents": args.n_agents,
@@ -139,9 +161,13 @@ def main():
         max_steps=args.steps,
         display_progress=True,
     )
+    print("\nSimulation Complete!")
+    print(f"Writing results to {args.out_file}")
 
     results_df = pd.DataFrame(results)
     results_df.to_csv(args.out_file, index=False, compression="gzip")
+
+    print("Done.")
 
 
 if __name__ == "__main__":

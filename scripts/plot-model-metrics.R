@@ -78,8 +78,8 @@ drift_dt[is.na(value), value := 0.0]
 # Plot --------------------------------------------------------------------------------------------
 
 plot_metric <- function(dt, ...) {
-  ggplot(dt, aes(x = V1, y = value, color = variable)) +
-    geom_line(linewidth = 1.5) +
+  ggplot(dt, aes(x = V1, y = value, color = variable, linetype = variable)) +
+    geom_line(linewidth = 1.2) +
     scale_x_continuous(n.breaks = 10) +
     scale_color_manual(
       values = c(
@@ -88,8 +88,12 @@ plot_metric <- function(dt, ...) {
         "Overall" = "red2"
       )
     ) +
+    scale_linetype_manual(
+      values = c("Overall" = "dashed", "Cell" = "solid", "Clone" = "solid")
+    ) +
     labs(x = "Step", color = "Cell Type", ...) +
     coriell::theme_coriell() +
+    guides(linetype = "none") +
     theme(legend.position = "bottom")
 }
 
@@ -101,7 +105,7 @@ p <- wrap_plots(
     title = "Mean Methylation",
     y = "Mean Methylation (beta-value)"
   ),
-  plot_metric(drift_dt, title = "Population JSD (Drift)", y = "JSD"),
+  plot_metric(drift_dt, title = "Population JSD", y = "JSD"),
   ncol = 3
 ) +
   plot_layout(guides = "collect") &

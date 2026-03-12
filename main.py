@@ -98,6 +98,15 @@ def parse_arguments():
         default=0.0,
         help="Probability of a Clone being replaced by a Cell.",
     )
+
+    # Program args
+    parser.add_argument(
+        "--out_file",
+        type=str,
+        default="run_results.csv.gz",
+        help="Filename to save run results DataFrame.",
+    )
+
     return parser.parse_args()
 
 
@@ -132,7 +141,7 @@ def main():
     )
 
     results_df = pd.DataFrame(results)
-    results_df.to_csv("results/run_results.csv.gz", index=False, compression="gzip")
+    results_df.to_csv(args.out_file, index=False, compression="gzip")
 
 
 if __name__ == "__main__":

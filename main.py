@@ -23,7 +23,7 @@ def parse_arguments():
     parser.add_argument(
         "--n_proc",
         type=int,
-        default=1,
+        default=8,
         help="Number of processes used for multiprocessing.",
     )
 
@@ -32,7 +32,7 @@ def parse_arguments():
         "--n_agents",
         type=int,
         default=1_000,
-        help="Total number of cells (constant population size).",
+        help="Total number of cells/agents. Constant population size after growth phase.",
     )
     parser.add_argument(
         "--steps",
@@ -51,7 +51,7 @@ def parse_arguments():
     parser.add_argument(
         "--n_genes",
         type=int,
-        default=500,
+        default=100,
         help="Number of genes (rows of CpG matrix) per agent.",
     )
     parser.add_argument(
@@ -63,7 +63,7 @@ def parse_arguments():
     parser.add_argument(
         "--p_meth",
         type=float,
-        default=0.01,
+        default=0.005,
         help="Probability of an unmethylated CpG becoming methylated per step.",
     )
     parser.add_argument(

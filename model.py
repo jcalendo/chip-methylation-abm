@@ -1,12 +1,11 @@
+import math
+
 import mesa
 import numpy as np
+
 from agents import Cell, Clone
 from metrics import (
     mean_methylation,
-    jsd_unmeth,
-    mean_shannon,
-    beta_var,
-    gini,
     population_jsd,
     subpopulation_jsd,
     population_jsd_unmeth,
@@ -41,10 +40,21 @@ class AgingModel(mesa.Model):
         self.p_duplicate = p_duplicate
         self.p_die = p_die
         self.chip_time = chip_time
+        self.target_population = n_agents
 
-        Cell.create_agents(
+        # Compute growth phase steps needed to reach target population size
+        self.growth_steps = math.ceil(math.log2(self.target_population))
+        self.is_growing = True
+
+        # Ensure CHIP doesn't trigger while still developing
+        if chip_time <= self.growth_steps:
+            raise ValueError(
+                f"chip_time ({chip_time}) must be > growth_steps ({self.growth_steps})"
+            )
+
+        # Founder cell
+        Cell(
             model=self,
-            n=n_agents,
             n_genes=n_genes,
             n_cpgs=n_cpgs,
             p_meth=p_meth,
@@ -52,17 +62,10 @@ class AgingModel(mesa.Model):
             init_meth=init_meth,
         )
 
+        self.schedule_event(self.end_growth_phase, at=self.growth_steps)
         self.schedule_event(self.trigger_chip_highest_meth, at=chip_time)
 
         self.datacollector = mesa.DataCollector(
-            # agent_reporters={
-            #     "Agent_Type": lambda a: type(a).__name__,
-            #     "Mean_Methylation": mean_methylation,
-            #     "JSD_Unmeth": jsd_unmeth,
-            #     "Shannon": mean_shannon,
-            #     "Beta_Variance": beta_var,
-            #     "Gini": gini,
-            # },
             model_reporters={
                 "Cell_Count": lambda m: len(m.agents.select(agent_type=Cell)),
                 "Clone_Count": lambda m: len(m.agents.select(agent_type=Clone)),
@@ -120,6 +123,18 @@ class AgingModel(mesa.Model):
             },
         )
 
+    def end_growth_phase(self):
+        """Prunes the population back down to a fixed number of agents"""
+        current_cells = self.agents.select(agent_type=Cell)
+        excess = len(current_cells) - self.target_population
+
+        if excess > 0:
+            to_remove = self.random.sample(list(current_cells), excess)
+            for cell in to_remove:
+                cell.remove()
+
+        self.is_growing = False
+
     def trigger_chip_random(self):
         """Selects a random Cell, copies its state to a new Clone, and removes the Cell."""
         cell_agents = self.agents.select(agent_type=Cell)
@@ -158,9 +173,12 @@ class AgingModel(mesa.Model):
             target_cell.remove()
 
     def step(self):
-        """Standard step executed every time unit."""
+        """Advances the simulation by one step."""
         self.datacollector.collect(self)
-        self.agents.shuffle_do("methylate")
 
-        if Clone in self.agents_by_type:
-            self.agents_by_type[Clone].shuffle_do("divide")
+        if self.is_growing:
+            self.agents.shuffle_do("duplicate")
+            self.agents.shuffle_do("methylate")
+        else:
+            self.agents.shuffle_do("methylate")
+            self.agents.select(agent_type=Clone).shuffle_do("divide")

@@ -40,6 +40,20 @@ class Cell(mesa.Agent):
         do_unmeth = (probs < self.p_unmeth) & (self.cpgs == 1)
         self.cpgs ^= do_meth | do_unmeth
 
+    def duplicate(self):
+        """Copy information from one Cell into another. Used during growth phase."""
+        cell_agents = self.model.agents_by_type.get(Cell)
+        if cell_agents and len(cell_agents) > 0:
+            daughter = Cell(
+                self.model,
+                self.n_genes,
+                self.n_cpgs,
+                self.p_meth,
+                self.p_unmeth,
+                self.init_meth,
+            )
+            daughter.cpgs = self.cpgs.copy()
+
 
 class Clone(mesa.Agent):
     """
@@ -112,8 +126,8 @@ class Clone(mesa.Agent):
 
             if cell_agents and len(cell_agents) > 0:
                 parent_cell = self.random.choice(cell_agents)
-                
-                # Register the new Cell 
+
+                # Register the new Cell
                 Cell(
                     self.model,
                     parent_cell.n_genes,

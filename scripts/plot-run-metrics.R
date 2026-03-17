@@ -1,4 +1,4 @@
-#!/usr/bin/env Rscript --vanilla
+#!/usr/bin/env Rscript
 #
 # Create plots of metrics computed across all runs of a given simulation
 #

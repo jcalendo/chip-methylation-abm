@@ -1,14 +1,13 @@
 import math
 
 import mesa
-import numpy as np
 
 from agents import Cell, Clone
 from metrics import (
     mean_methylation,
+    population_meth_mean,
+    population_meth_var,
     population_jsd,
-    subpopulation_jsd,
-    population_jsd_unmeth,
 )
 
 
@@ -69,58 +68,28 @@ class AgingModel(mesa.Model):
             model_reporters={
                 "Cell_Count": lambda m: len(m.agents.select(agent_type=Cell)),
                 "Clone_Count": lambda m: len(m.agents.select(agent_type=Clone)),
-                "Overall_Mean_Methylation": lambda m: (
-                    np.mean(m.agents.get("cpgs")) if len(m.agents) > 0 else np.nan
-                ),
-                "Cell_Mean_Methylation": lambda m: (
-                    np.mean(m.agents.select(agent_type=Cell).get("cpgs"))
-                    if len(m.agents.select(agent_type=Cell)) > 0
-                    else np.nan
-                ),
-                "Clone_Mean_Methylation": lambda m: (
-                    np.mean(m.agents.select(agent_type=Clone).get("cpgs"))
-                    if len(m.agents.select(agent_type=Clone)) > 0
-                    else np.nan
-                ),
-                "Overall_Methylation_Variance": lambda m: (
-                    np.var([mean_methylation(a) for a in m.agents], ddof=1)
-                    if len(m.agents) > 1
-                    else np.nan
-                ),
-                "Cell_Methylation_Variance": lambda m: (
-                    np.var(
-                        [mean_methylation(a) for a in m.agents.select(agent_type=Cell)],
-                        ddof=1,
-                    )
-                    if len(m.agents.select(agent_type=Cell)) > 1
-                    else np.nan
-                ),
-                "Clone_Methylation_Variance": lambda m: (
-                    np.var(
-                        [
-                            mean_methylation(a)
-                            for a in m.agents.select(agent_type=Clone)
-                        ],
-                        ddof=1,
-                    )
-                    if len(m.agents.select(agent_type=Clone)) > 1
-                    else np.nan
-                ),
-                "Overall_Population_JSD": population_jsd,
-                "Cell_Population_JSD": lambda m: subpopulation_jsd(
+                "Overall_Mean_Methylation": lambda m: population_meth_mean(m.agents),
+                "Cell_Mean_Methylation": lambda m: population_meth_mean(
                     m.agents.select(agent_type=Cell)
                 ),
-                "Clone_Population_JSD": lambda m: subpopulation_jsd(
+                "Clone_Mean_Methylation": lambda m: population_meth_mean(
                     m.agents.select(agent_type=Clone)
                 ),
-                "Overall_Drift_JSD": lambda m: population_jsd_unmeth(m.agents),
-                "Cell_Drift_JSD": lambda m: population_jsd_unmeth(
+                "Overall_Methylation_Var": lambda m: population_meth_var(m.agents),
+                "Cell_Methylation_Var": lambda m: population_meth_var(
                     m.agents.select(agent_type=Cell)
                 ),
-                "Clone_Drift_JSD": lambda m: population_jsd_unmeth(
+                "Clone_Methylation_Var": lambda m: population_meth_var(
                     m.agents.select(agent_type=Clone)
                 ),
-            },
+                "Overall_Mean_JSD": lambda m: population_jsd(m.agents),
+                "Cell_Mean_JSD": lambda m: population_jsd(
+                    m.agents.select(agent_type=Cell)
+                ),
+                "Clone_Mean_JSD": lambda m: population_jsd(
+                    m.agents.select(agent_type=Clone)
+                ),
+            }
         )
 
     def end_growth_phase(self):

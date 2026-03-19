@@ -1,5 +1,10 @@
 import numpy as np
+
+from scipy.stats import entropy, wasserstein_distance
 from scipy.spatial.distance import jensenshannon
+
+
+# Agent-level metrics -----------------------------------------------------------------------------
 
 
 def mean_methylation(agent):
@@ -22,101 +27,92 @@ def jsd_unmeth(agent):
     Measures how far the cell's gene density distribution is from a fully unmethylated state.
     """
     freqs = pattern_freq(agent)
-
     ref_vec = np.zeros(agent.n_cpgs + 1)
     ref_vec[0] = 1.0
 
     return jensenshannon(freqs, ref_vec) ** 2
 
 
-def mean_shannon(agent):
+def evenness(agent):
     """
-    Compute the mean Shannon entropy of the genes.
-    A gene with 50% methylation has high entropy (disordered).
-    A gene with 0% or 100% methylation has 0 entropy (ordered).
+    Compute Pielou's evenness index across gene methylation densities.
     """
-    # Get the fraction of methylation for each gene
-    p_me = np.mean(agent.cpgs, axis=1)
-    p_un = 1.0 - p_me
+    freqs = pattern_freq(agent)
+    h = entropy(freqs)
+    s = np.log(agent.n_cpgs + 1)
 
-    with np.errstate(divide="ignore", invalid="ignore"):
-        h = -1 * ((p_me * np.log2(p_me)) + (p_un * np.log2(p_un)))
-
-    h = np.nan_to_num(h, nan=0.0)
-
-    return np.mean(h)
+    return h / s
 
 
-def beta_var(agent):
+def emd_unmeth(agent):
     """
-    Compute the variance of gene-level beta-values.
-    Measures epigenetic heterogeneity across the genome.
+    Compute the Earth Mover's Distance (Wasserstein distance) between
+    the cell's methylation density and a fully unmethylated reference.
+    Unlike JSD, EMD accounts for the 'distance' between bins.
     """
-    gene_betas = np.mean(agent.cpgs, axis=1)
-    return np.var(gene_betas, ddof=1) if len(gene_betas) > 1 else 0.0
+    freqs = pattern_freq(agent)
+
+    # The 'locations' of the bins on the x-axis (e.g., 0.0, 0.25, 0.5, 0.75, 1.0)
+    bin_locations = np.linspace(0, 1, agent.n_cpgs + 1)
+
+    # Reference distribution (100% of the weight is at the 0.0 bin)
+    ref_freqs = np.zeros(agent.n_cpgs + 1)
+    ref_freqs[0] = 1.0
+
+    # Calculate EMD (requires the bin locations and their respective weights/frequencies)
+    emd = wasserstein_distance(bin_locations, bin_locations, freqs, ref_freqs)
+
+    return emd
 
 
-def gini(agent):
-    """
-    Compute the Gini mean difference for gene-level beta-values.
-    Measures epigenetic polarization (e.g., are genes either fully meth or fully unmeth?).
-    """
-    gene_betas = np.mean(agent.cpgs, axis=1)
-    n = len(gene_betas)
-
-    if n < 2:
-        return 0.0
-
-    sorted_betas = np.sort(gene_betas)
-    weights = 2 * np.arange(1, n + 1) - n - 1
-    gmd = 2 * np.sum(weights * sorted_betas) / (n**2)
-
-    return gmd
+# Population-level metrics -----------------------------------------------------------------------
 
 
-def population_jsd(model):
-    """
-    Measures how much the agents' distributions diverge from the population consensus.
-    High value = highly heterogeneous population.
-    Low value = homogeneous population.
-    """
-    if len(model.agents) < 2:
-        return np.nan
-
-    agent_freqs = [pattern_freq(a) for a in model.agents]
-    centroid = np.mean(agent_freqs, axis=0)
-    jsd_vals = [jensenshannon(freq, centroid) ** 2 for freq in agent_freqs]
-
-    return np.mean(jsd_vals)
-
-
-def subpopulation_jsd(agentset):
-    """Calculates JSD for a specific subset of agents."""
+def population_meth_mean(agentset):
+    """Compute measurements across all genes"""
     if len(agentset) < 2:
         return np.nan
 
-    agent_freqs = [pattern_freq(a) for a in agentset]
-    centroid = np.mean(agent_freqs, axis=0)
-    jsd_vals = [jensenshannon(freq, centroid) ** 2 for freq in agent_freqs]
+    # Cell x gene x cpg array
+    population = np.array([a.cpgs for a in agentset])
 
-    return np.mean(jsd_vals)
+    # Mean over the flattened array
+    return np.mean(population)
 
 
-def population_jsd_unmeth(agentset):
+def population_meth_var(agentset):
     """
-    Compute the JSD of the population's average distribution
-    against a completely unmethylated reference.
-    Measures overall epigenetic drift from a ground state.
+    Measures the variance of the mean methylation across agents (cells)
+    """
+    if len(agentset) < 2:
+        return np.nan
+
+    population = np.array([a.cpgs for a in agentset])
+    cell_means = np.mean(population, axis=(1, 2))
+
+    return np.var(cell_means, ddof=1)
+
+
+def population_jsd(agentset):
+    """
+    Compute the JSD relative to a completely unmethylated reference
     """
     if len(agentset) == 0:
         return np.nan
 
-    agent_freqs = [pattern_freq(a) for a in agentset]
+    # Just need one agent to get params
+    first_agent = agentset[0]
+    n_cpgs = first_agent.n_cpgs
+    n_cells = len(agentset)
 
-    centroid = np.mean(agent_freqs, axis=0)
+    population = np.array([a.cpgs for a in agentset])
+    counts = np.sum(population, axis=2)
+    bins = np.arange(n_cpgs + 1)
+    bin_counts = (counts[:, :, None] == bins).sum(axis=0)
+    freqs = bin_counts / n_cells
 
-    first_agent = next(iter(agentset))
-    ref_vec = np.zeros(first_agent.n_cpgs + 1)
-    ref_vec[0] = 1.0
+    reference = np.zeros((1, n_cpgs + 1))
+    reference[0, 0] = 1.0
+    jsds = jensenshannon(freqs, reference, axis=1) ** 2
 
-    return jensenshannon(centroid, ref_vec) ** 2
+    return np.mean(jsds)

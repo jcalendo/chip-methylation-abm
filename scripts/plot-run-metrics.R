@@ -37,23 +37,36 @@ meth_dt[, variable := gsub("_Mean_Methylation", "", variable)]
 jsd_dt <- melt(
   run_dt,
   id.vars = c("RunId", "Step"),
-  measure.vars = c("Overall_Drift_JSD", "Cell_Drift_JSD", "Clone_Drift_JSD"),
+  measure.vars = c("Overall_Mean_JSD", "Cell_Mean_JSD", "Clone_Mean_JSD"),
   variable.factor = FALSE
 )
-jsd_dt[, variable := gsub("_Drift_JSD", "", variable)]
+jsd_dt[, variable := gsub("_Mean_JSD", "", variable)]
+
+# Methylation variance
+var_dt <- melt(
+  run_dt,
+  id.vars = c("RunId", "Step"),
+  measure.vars = c(
+    "Overall_Methylation_Var",
+    "Cell_Methylation_Var",
+    "Clone_Methylation_Var"
+  ),
+  variable.factor = FALSE
+)
+var_dt[, variable := gsub("_Methylation_Var", "", variable)]
+
 
 # Plot the metric values across all runs ---------------------------------------------------------
 
 plot_metric <- function(dt, ...) {
   ggplot(dt, aes(x = Step, y = value)) +
-    geom_line(aes(group = RunId), alpha = 0.5) +
+    geom_line(aes(group = RunId), alpha = 0.1) +
     scale_x_continuous(n.breaks = 10) +
     labs(x = "Step", ...) +
     facet_wrap(~variable) +
-    coriell::theme_coriell() +
+    theme_classic() +
     theme(
       legend.position = "bottom",
-      panel.grid.major = element_line(color = "lightgrey"),
       panel.grid.minor = element_blank()
     )
 }

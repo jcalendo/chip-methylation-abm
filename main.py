@@ -23,7 +23,7 @@ def parse_arguments():
     parser.add_argument(
         "--n_proc",
         type=int,
-        default=8,
+        default=4,
         help="Number of processes used for multiprocessing.",
     )
 
@@ -83,7 +83,7 @@ def parse_arguments():
     parser.add_argument(
         "--p_meth_clone",
         type=float,
-        default=0.01,
+        default=0.005,
         help="Probability of an unmethylated CpG becoming methylated per step in Clones.",
     )
     parser.add_argument(
@@ -95,13 +95,13 @@ def parse_arguments():
     parser.add_argument(
         "--p_duplicate",
         type=float,
-        default=1.0,
+        default=0.0688,
         help="Probability of a Clone duplicating.",
     )
     parser.add_argument(
         "--p_die",
         type=float,
-        default=0.0,
+        default=0.0312,
         help="Probability of a Clone being replaced by a Cell.",
     )
 
@@ -110,7 +110,7 @@ def parse_arguments():
         "--out_file",
         type=str,
         default="run_results.csv.gz",
-        help="Filename to save run results DataFrame.",
+        help="Filename to save run results DataFrame to.",
     )
     parser.add_argument(
         "--quiet",

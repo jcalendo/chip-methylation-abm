@@ -78,9 +78,10 @@ p <- wrap_plots(
     title = "Mean Methylation",
     y = "Mean Methylation (beta-value)"
   ),
-  plot_metric(jsd_dt, title = "JSD", y = "JSD") +
+  plot_metric(jsd_dt, title = "JSD", y = "JSD"),
+  plot_metric(var_dt, title = "Methylation Variance", y = "Variance") +
     labs(caption = paste0("Showing data for all:", n_runs, " simulated runs.")),
-  nrow = 3
+  nrow = 4
 ) +
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
@@ -89,6 +90,6 @@ ggsave(
   filename = here("results", "run_results.png"),
   plot = p,
   width = 16,
-  height = 12,
+  height = 16,
   dpi = 600
 )

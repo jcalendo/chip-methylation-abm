@@ -73,25 +73,23 @@ $C_t = C_0 * (1 + s)^t$
 
 Where:
 
-* **C_t** is the target number of Clones.
-* **C_0** is the initial number of Clones at induction.
-* **t** is the number of simulation steps between induction and observation.
-* **s** is the net selective advantage per step.
+* $C_t$ is the target number of Clones.
+* $C_0$ is the initial number of Clones at induction.
+* $t$ is the number of simulation steps between induction and observation.
+* $s$ is the net selective advantage per step.
 
 To determine the required fitness advantage to reach a specific variant allele frequency (VAF) or cellular fraction within a fixed timeframe, solve for `s`:
 
-s = (C_target / C_0)^(1/t) - 1
+$s = (C_target / C_0)^(1/t) - 1$
 
 In the fixed-population model, cellular turnover and clonal expansion are driven by 3 probabilities:
 
-* **p_duplicate**: The probability an agent divides.
-* **p_die**: The probability an agent is removed and replaced.
-* **p_neutral**: The probability an agent remains inactive.
+* $P(duplicate)$: The probability an agent divides.
+* $P(p_die)$: The probability an agent is removed and replaced.
+* $P(neutral)$ The probability an agent remains inactive.
 
 For a mutant clone to expand, its net growth advantage must equal `s`:
 
-s = p_duplicate - p_die
+$s = P(duplicate) - P(die)$
 
-Because the probabilities must sum to 1 (`p_duplicate + p_die + p_neutral = 1`), the exact values can be tuned based on the desired baseline cellular turnover rate (`p_neutral`). 
-
-Note that in a stochastic model like this one, initializing one Clone results in a igh risk of early stochastic extinction (e.g., the agent rolls `p_die` on step 1), even with a strongly positive `s`.
+Because the probabilities must sum to 1 the exact values can be tuned based on the desired baseline cellular turnover rate ($P(neutral)$). Note that in a stochastic model like this one, initializing one Clone results in a high risk of early stochastic extinction (e.g., the agent rolls `p_die` on step 1), even with a strongly positive `s`.

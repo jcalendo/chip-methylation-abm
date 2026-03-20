@@ -23,6 +23,7 @@ class AgingModel(mesa.Model):
         p_meth_clone,
         p_unmeth_clone,
         chip_time,
+        prop_chip,
         p_duplicate,
         p_die,
         rng=None,
@@ -40,6 +41,7 @@ class AgingModel(mesa.Model):
         self.p_die = p_die
         self.chip_time = chip_time
         self.target_population = n_agents
+        self.prop_chip = prop_chip
 
         # Compute growth phase steps needed to reach target population size
         self.growth_steps = math.ceil(math.log2(self.target_population))
@@ -62,7 +64,7 @@ class AgingModel(mesa.Model):
         )
 
         self.schedule_event(self.end_growth_phase, at=self.growth_steps)
-        self.schedule_event(self.trigger_chip_highest_meth, at=chip_time)
+        self.schedule_event(self.trigger_chip_random, at=chip_time)
 
         self.datacollector = mesa.DataCollector(
             model_reporters={
@@ -105,11 +107,21 @@ class AgingModel(mesa.Model):
         self.is_growing = False
 
     def trigger_chip_random(self):
-        """Selects a random Cell, copies its state to a new Clone, and removes the Cell."""
+        """
+        Selects a random Cell and then copies it N times into a new CLonal population until 
+        the desired proportion of Cloness is created.
+        """
         cell_agents = self.agents.select(agent_type=Cell)
+        n_cells = len(cell_agents)
+        n_clones = int(self.prop_chip * n_cells)
 
-        if cell_agents and len(cell_agents) > 0:
-            target_cell = self.random.choice(cell_agents)
+        if n_clones == 0 and self.prop_chip > 0:
+            n_clones = 1
+    
+        targets = self.random.sample(list(cell_agents), n_clones)
+        clone_template = targets[0]
+
+        for target in targets:
             new_clone = Clone(
                 self,
                 self.n_genes,
@@ -119,16 +131,26 @@ class AgingModel(mesa.Model):
                 self.p_duplicate,
                 self.p_die,
             )
-            new_clone.cpgs = target_cell.cpgs.copy()
-            target_cell.remove()
+            new_clone.cpgs = clone_template.cpgs.copy()
+            target.remove()
 
     def trigger_chip_highest_meth(self):
-        """Select the Cell with the greatest mean methylation as the target Clone"""
+        """
+        Selects the Cell with the greatest mean methylation and then copies it N times into a new 
+        CLonal population until the desired proportion of Cloness is created.
+        """
         cell_agents = self.agents.select(agent_type=Cell)
+        n_cells = len(cell_agents)
+        n_clones = int(self.prop_chip * n_cells)
 
-        if cell_agents and len(cell_agents) > 0:
-            sorted_cells = cell_agents.sort(key=mean_methylation, ascending=False)
-            target_cell = sorted_cells[0]
+        if n_clones == 0 and self.prop_chip > 0:
+            n_clones = 1
+    
+        targets = self.random.sample(list(cell_agents), n_clones)   
+        sorted_cells = cell_agents.sort(key=mean_methylation, ascending=False)
+        clone_template = sorted_cells[0]
+
+        for target in targets:
             new_clone = Clone(
                 self,
                 self.n_genes,
@@ -138,8 +160,8 @@ class AgingModel(mesa.Model):
                 self.p_duplicate,
                 self.p_die,
             )
-            new_clone.cpgs = target_cell.cpgs.copy()
-            target_cell.remove()
+            new_clone.cpgs = clone_template.cpgs.copy()
+            target.remove()
 
     def step(self):
         """Advances the simulation by one step."""

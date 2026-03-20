@@ -21,7 +21,7 @@ def parse_arguments():
         help="Number of times to repeat the experiment.",
     )
     parser.add_argument(
-        "--n_proc",
+        "--n-proc",
         type=int,
         default=4,
         help="Number of processes used for multiprocessing.",
@@ -29,7 +29,7 @@ def parse_arguments():
 
     # Model arguments
     parser.add_argument(
-        "--n_agents",
+        "--n-agents",
         type=int,
         default=1_000,
         help="Total number of cells/agents. Constant population size after growth phase.",
@@ -41,39 +41,45 @@ def parse_arguments():
         help="Total number of steps (years) to run the simulation.",
     )
     parser.add_argument(
-        "--chip_time",
+        "--chip-time",
         type=int,
         default=50,
         help="Step (year) at which the first mutant Clone is introduced.",
     )
+    parser.add_argument(
+        "--prop-chip",
+        type=float,
+        default=0.02,
+        help="Proportion of total poopulation that will be turned into Clones at chip_time."
+    )
 
     # Cell arguments
     parser.add_argument(
-        "--n_genes",
+        "--n-genes",
         type=int,
         default=100,
         help="Number of genes (rows of CpG matrix) per agent.",
     )
     parser.add_argument(
-        "--n_cpgs",
+        "--n-cpgs",
         type=int,
         default=10,
         help="Number of CpGs (columns od CpG matrix) per gene.",
     )
     parser.add_argument(
-        "--p_meth",
+        "--p-meth",
         type=float,
         default=0.005,
         help="Probability of an unmethylated CpG becoming methylated per step.",
     )
     parser.add_argument(
-        "--p_unmeth",
+        "--p-unmeth",
         type=float,
         default=1e-6,
         help="Probability of a methylated CpG becoming unmethylated per step.",
     )
     parser.add_argument(
-        "--init_meth",
+        "--init-meth",
         type=float,
         default=0.0,
         help="Initial proportion of CpGs that are methylated at the start of the simulation.",
@@ -81,33 +87,33 @@ def parse_arguments():
 
     # Clone arguments
     parser.add_argument(
-        "--p_meth_clone",
+        "--p-meth-clone",
         type=float,
         default=0.005,
         help="Probability of an unmethylated CpG becoming methylated per step in Clones.",
     )
     parser.add_argument(
-        "--p_unmeth_clone",
+        "--p-unmeth-clone",
         type=float,
         default=1e-6,
         help="Probability of a methylated CpG becoming unmethylated per step in Clones.",
     )
     parser.add_argument(
-        "--p_duplicate",
+        "--p-duplicate",
         type=float,
-        default=0.0688,
+        default=0.0,
         help="Probability of a Clone duplicating.",
     )
     parser.add_argument(
-        "--p_die",
+        "--p-die",
         type=float,
-        default=0.0312,
+        default=0.0,
         help="Probability of a Clone being replaced by a Cell.",
     )
 
     # Program args
     parser.add_argument(
-        "--out_file",
+        "--outfile",
         type=str,
         default="run_results.csv.gz",
         help="Filename to save run results DataFrame to.",
@@ -139,12 +145,13 @@ def print_banner(args, width=55):
     print_row("Agents per run", args.n_agents)
     print_row("Genes per agent", args.n_genes)
     print_row("CpGs per gene", args.n_cpgs)
-    print_row("Initialized methylation proportion", args.init_meth)
-    print_row("Cell Methylation probability", args.p_meth)
-    print_row("Cell Unmethylation probability", args.p_unmeth)
+    print_row("Initial methylation proportion", args.init_meth)
+    print_row("Cell methylation probability", args.p_meth)
+    print_row("Cell unmethylation probability", args.p_unmeth)
     print_row("Step of CHIP onset", args.chip_time)
-    print_row("Clone Methylation probability", args.p_meth_clone)
-    print_row("Clone Unmethylation probability", args.p_unmeth_clone)
+    print_row("Proportion of Clones at CHIP", args.prop_chip)
+    print_row("Clone methylation probability", args.p_meth_clone)
+    print_row("Clone unmethylation probability", args.p_unmeth_clone)
     print_row("Clone duplication probability", args.p_duplicate)
     print_row("Clone removal probability", args.p_die)
     print("└" + "─" * width + "┘\n")
@@ -166,6 +173,7 @@ def main():
         "p_meth_clone": args.p_meth_clone,
         "p_unmeth_clone": args.p_unmeth_clone,
         "chip_time": args.chip_time,
+        "prop_chip": args.prop_chip,
         "p_duplicate": args.p_duplicate,
         "p_die": args.p_die,
     }
@@ -185,11 +193,11 @@ def main():
     )
 
     results_df = pd.DataFrame(results)
-    results_df.to_csv(args.out_file, index=False, compression="gzip")
+    results_df.to_csv(args.outfile, index=False, compression="gzip")
 
     if not args.quiet:
         print("\nSimulation Complete!")
-        print(f"Writing results to {args.out_file}")
+        print(f"Writing results to {args.outfile}")
         print("Done.")
 
 

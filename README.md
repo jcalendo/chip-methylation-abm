@@ -19,7 +19,7 @@ Install [uv](https://docs.astral.sh/uv/) then:
 
 ```
 # Clone the repo
-git clone git@github.com:jcalendo/chip-methylation-abm.git
+git clone https://github.com/jcalendo/chip-methylation-abm.git
 cd chip-methylation-abm
 
 # Sync project dependencies with `uv`

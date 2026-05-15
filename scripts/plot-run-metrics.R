@@ -11,14 +11,15 @@ suppressPackageStartupMessages(library(patchwork))
 
 run_dt <- fread(here("results", "run_results.csv.gz"))
 n_runs <- run_dt[, max(RunId)] + 1
+run_dt[, Overall_Count := Cell_Count + Clone_Count]
 
 count_dt <- melt(
   run_dt,
   id.vars = c("RunId", "Step"),
-  measure.vars = c("Cell_Count", "Clone_Count"),
+  measure.vars = c("Overall_Count", "Cell_Count", "Clone_Count"),
   variable.factor = FALSE
 )
-count_dt[, variable := fifelse(variable == "Cell_Count", "Cell", "Clone")]
+count_dt[, variable := gsub("_Count", "", variable)]
 
 # Mean methylation
 meth_dt <- melt(
@@ -67,7 +68,7 @@ plot_metric <- function(dt, ...) {
     theme_classic() +
     theme(
       legend.position = "bottom",
-      panel.grid.minor = element_blank()
+      panel.grid.major = element_line(linetype = 2, color = "grey80")
     )
 }
 
@@ -89,7 +90,7 @@ p <- wrap_plots(
 ggsave(
   filename = here("results", "run_results.png"),
   plot = p,
-  width = 16,
-  height = 16,
+  width = 12,
+  height = 12,
   dpi = 600
 )

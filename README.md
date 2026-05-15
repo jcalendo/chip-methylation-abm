@@ -109,14 +109,14 @@ uv run main.py --init-meth 0.01 --p-meth 0.01 --p-unmeth 0.001 --p-meth-clone 0.
 In the fixed-population model, cellular turnover and clonal expansion are driven by 3 probabilities:
 
 * $P(duplicate)$: The probability an agent divides.
-* $P(p_{die})$: The probability an agent is removed and replaced.
+* $P(die)$: The probability an agent is removed and replaced.
 * $P(neutral)$ The probability an agent remains inactive.
 
 For a mutant clone to expand $s > 0$:
 
 $s = P(duplicate) - P(die)$
 
-Because the probabilities must sum to 1 the exact values can be tuned based on the desired baseline cellular turnover rate ($P(neutral)$). Note that in a stochastic model like this one, initializing one Clone results in a high risk of early stochastic extinction (e.g., the agent rolls `p_die` on step 1), even with a strongly positive `s`.
+Because the probabilities must sum to 1 the exact values can be tuned based on the desired baseline cellular turnover rate ( $P(neutral)$ ). Note that in a stochastic model like this one, initializing one Clone results in a high risk of early stochastic extinction (e.g., the agent rolls `p_die` on step 1), even with a strongly positive `s`.
 
 In a discrete-time model the growth of a mutant clone with a constant selective advantage `s` can be modeled using the discrete exponential growth equation:
 

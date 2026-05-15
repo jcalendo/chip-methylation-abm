@@ -29,6 +29,45 @@ uv sync
 uv run main.py --help
 ```
 
+## Usage
+
+```
+usage: main.py [-h] [--runs RUNS] [--n-proc N_PROC] [--n-agents N_AGENTS] [--steps STEPS] 
+                [--chip-time CHIP_TIME] [--prop-chip PROP_CHIP] [--n-genes N_GENES] 
+                [--n-cpgs N_CPGS] [--p-meth P_METH] [--p-unmeth P_UNMETH] [--init-meth INIT_METH] 
+                [--p-meth-clone P_METH_CLONE] [--p-unmeth-clone P_UNMETH_CLONE] 
+                [--p-duplicate P_DUPLICATE] [--p-die P_DIE] [--outfile OUTFILE] 
+                [--quiet | --no-quiet]
+
+Run the CHIP Methylation Agent-Based Model.
+
+options:
+  -h, --help            show this help message and exit
+  --runs RUNS           Number of times to repeat the experiment. (default: 100)
+  --n-proc N_PROC       Number of processes used for multiprocessing. (default: 4)
+  --n-agents N_AGENTS   Total number of cells/agents. Constant population size after growth phase. (default: 1000)
+  --steps STEPS         Total number of steps (years) to run the simulation. (default: 100)
+  --chip-time CHIP_TIME
+                        Step (year) at which the first mutant Clone is introduced. (default: 50)
+  --prop-chip PROP_CHIP
+                        Proportion of total poopulation that will be turned into Clones at chip_time. (default: 0.02)
+  --n-genes N_GENES     Number of genes (rows of CpG matrix) per agent. (default: 100)
+  --n-cpgs N_CPGS       Number of CpGs (columns od CpG matrix) per gene. (default: 10)
+  --p-meth P_METH       Probability of an unmethylated CpG becoming methylated per step. (default: 0.005)
+  --p-unmeth P_UNMETH   Probability of a methylated CpG becoming unmethylated per step. (default: 1e-06)
+  --init-meth INIT_METH
+                        Initial proportion of CpGs that are methylated at the start of the simulation. (default: 0.0)
+  --p-meth-clone P_METH_CLONE
+                        Probability of an unmethylated CpG becoming methylated per step in Clones. (default: 0.005)
+  --p-unmeth-clone P_UNMETH_CLONE
+                        Probability of a methylated CpG becoming unmethylated per step in Clones. (default: 1e-06)
+  --p-duplicate P_DUPLICATE
+                        Probability of a Clone duplicating. (default: 0.0)
+  --p-die P_DIE         Probability of a Clone being replaced by a Cell. (default: 0.0)
+  --outfile OUTFILE     Filename to save run results DataFrame to. (default: run_results.csv.gz)
+  --quiet, --no-quiet   Do not print program messages. (default: False)
+```
+
 ## Examples
 
 The current simulation has a lot of arguments to tweak. It's not immediately evident how adjusting these parameters leads to different behaviors. So I'll try to list a few examples to give an idea of what is currently possible.
@@ -70,7 +109,7 @@ uv run main.py --init-meth 0.01 --p-meth 0.01 --p-unmeth 0.001 --p-meth-clone 0.
 In the fixed-population model, cellular turnover and clonal expansion are driven by 3 probabilities:
 
 * $P(duplicate)$: The probability an agent divides.
-* $P(p_die)$: The probability an agent is removed and replaced.
+* $P(p_{die})$: The probability an agent is removed and replaced.
 * $P(neutral)$ The probability an agent remains inactive.
 
 For a mutant clone to expand $s > 0$:

@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from model import AgingModel
+from visualization import plot_simulation_metrics
 
 
 def parse_arguments():
@@ -194,11 +195,16 @@ def main():
 
     results_df = pd.DataFrame(results)
     results_df.to_csv(args.outfile, index=False, compression="gzip")
-
+    
     if not args.quiet:
-        print("\nSimulation Complete!")
         print(f"Writing results to {args.outfile}")
-        print("Done.")
+    
+    plot_outfile = args.outfile.replace(".csv.gz", ".png")
+    plot_simulation_metrics(df=results_df, output_path=plot_outfile)
+    
+    if not args.quiet:
+        print(f"Plot saved to {plot_outfile}")
+        print("Simulation Complete!")
 
 
 if __name__ == "__main__":

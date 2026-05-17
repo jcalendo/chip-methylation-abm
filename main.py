@@ -51,7 +51,7 @@ def parse_arguments():
         "--prop-chip",
         type=float,
         default=0.02,
-        help="Proportion of total poopulation that will be turned into Clones at chip_time."
+        help="Proportion of total population that will be turned into Clones at chip_time."
     )
 
     # Cell arguments

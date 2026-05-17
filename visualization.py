@@ -1,18 +1,14 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from matplotlib.ticker import MaxNLocator
 from pathlib import Path
 
 
 def plot_simulation_metrics(df: pd.DataFrame, output_path: str = "run_results.png"):
     """
-    Generates a 4x3 grid plot of simulation metrics across all runs, 
-    mimicking the layout of the original ggplot2/patchwork R script.
+    Generates a basic 3x3 grid plot of simulation metrics across all runs.
     """
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    
-    n_runs = df["RunId"].max() + 1
     
     if "Overall_Count" not in df.columns:
         df["Overall_Count"] = df["Cell_Count"] + df["Clone_Count"]
@@ -24,7 +20,7 @@ def plot_simulation_metrics(df: pd.DataFrame, output_path: str = "run_results.pn
             "strip": "_Count"
         },
         {
-            "ylabel": "Mean Methylation\n(beta-value)",
+            "ylabel": "Mean Methylation",
             "vars": ["Overall_Mean_Methylation", "Cell_Mean_Methylation", "Clone_Mean_Methylation"],
             "strip": "_Mean_Methylation"
         },
@@ -32,21 +28,16 @@ def plot_simulation_metrics(df: pd.DataFrame, output_path: str = "run_results.pn
             "ylabel": "JSD",
             "vars": ["Overall_Mean_JSD", "Cell_Mean_JSD", "Clone_Mean_JSD"],
             "strip": "_Mean_JSD"
-        },
-        {
-            "ylabel": "Variance",
-            "vars": ["Overall_Methylation_Var", "Cell_Methylation_Var", "Clone_Methylation_Var"],
-            "strip": "_Methylation_Var"
         }
     ]
     
-    fig, axes = plt.subplots(nrows=4, ncols=3, figsize=(12, 12), sharex=True, sharey="row")
+    fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(12, 9), sharex=True, sharey="row")
     categories = ["Overall", "Cell", "Clone"]
     
     for row_idx, config in enumerate(metrics_config):
-        melted_df = df.melt(
+        melt_vars = ["RunId", "Step"] + config["vars"]
+        melted_df = df[melt_vars].melt(
             id_vars=["RunId", "Step"],
-            value_vars=config["vars"],
             var_name="variable",
             value_name="value"
         )
@@ -55,51 +46,54 @@ def plot_simulation_metrics(df: pd.DataFrame, output_path: str = "run_results.pn
         
         for col_idx, cat in enumerate(categories):
             ax = axes[row_idx, col_idx]
-            
             subset = melted_df[melted_df["variable"] == cat]
             
-            # Plot all runs using seaborn
+            # 2. Plot the individual stochastic runs (Background)
             sns.lineplot(
                 data=subset,
                 x="Step",
                 y="value",
                 units="RunId",
-                estimator=None,  # Critical: disables slow bootstrapping, draws individual lines
-                alpha=0.1,
-                color="black",
-                ax=ax
+                estimator=None,  
+                alpha=0.15,
+                color="slategray", # Softer than black
+                linewidth=0.8,
+                ax=ax,
+                zorder=1 # Push to background
             )
             
-            # Apply ggplot theme-like elements
-            ax.grid(True, linestyle="--", color="grey", alpha=0.3)
-            sns.despine(ax=ax)
-            ax.xaxis.set_major_locator(MaxNLocator(nbins=10)) # Equivalent to n.breaks=10
+            # 3. Overlay the Mean trajectory (Foreground)
+            sns.lineplot(
+                data=subset,
+                x="Step",
+                y="value",
+                estimator="mean", 
+                errorbar=None,     # Turn off confidence intervals to avoid clutter
+                color="firebrick", # High contrast against the slategray
+                linewidth=2.5,
+                ax=ax,
+                zorder=2 # Pull to front
+            )
             
-            # Set Titles and Labels
+            # 4. Clean up axes (Tufte aesthetics)
+            sns.despine(ax=ax)
+            ax.grid(True, axis="y", linestyle="--", alpha=0.5) # Horizontal gridlines only
+            ax.tick_params(axis='both', which='major', labelsize=12)
+            
+            # Basic Titles and Labels
             if row_idx == 0:
-                ax.set_title(cat, fontsize=12, pad=10)
+                ax.set_title(cat, fontweight="bold", pad=15, fontsize=16)
             
             if col_idx == 0:
-                ax.set_ylabel(config["ylabel"], fontsize=10)
+                ax.set_ylabel(config["ylabel"], fontsize=14)
             else:
                 ax.set_ylabel("")
                 
-            if row_idx == 3:
-                ax.set_xlabel("Step", fontsize=10)
+            if row_idx == 2:
+                ax.set_xlabel("Step (Years)", fontsize=14)
             else:
                 ax.set_xlabel("")
                 
-    # Add the caption at the bottom right
-    fig.text(
-        0.98, 0.02, 
-        f"Showing data for all: {n_runs} simulated runs.", 
-        ha="right", fontsize=10, color="grey"
-    )
-    
-    # Adjust layout to prevent overlap
     plt.tight_layout()
-    fig.subplots_adjust(hspace=0.3, wspace=0.3, bottom=0.06) 
-    
-    # Save the figure
     fig.savefig(output_path, dpi=600, bbox_inches="tight")
     plt.close(fig)

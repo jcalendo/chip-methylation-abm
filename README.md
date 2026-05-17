@@ -1,9 +1,12 @@
-## Agent based model of stochastic methylation during clonal hematopoiesis of indeterminant potential (chip)
+## Agent based model of stochastic methylation during clonal hematopoiesis of indeterminate potential (chip)
 
 **Work-in-progress** experimenting with methylation heterogeneity metrics and ABMs. 
 
-The ABM simulates a constant size population of Cells and Clones after an initial growth phase. Each Cell/Clone is an agent with n_genes and n_cpgs per gene modeled as a 2D numpy array. Every CpG has a 'p_meth' independent probability of randomly gaining methylation (being flipped from a 0 -> 1) and an independent probability of becoming unmethylated if already methylated (p_unmeth). A single Cell is initialized at the start of the simulation. This Cell duplicates and then (un)methylates until the target population size is reached. Following the growth phase, Cells progress each step (un)methylating stochastically until CH occurs. At a given age ('chip_time'), one of the Cells is randomly chosen to become a Clone and one or more Clones is initialized, replacing randomly selected Cells to maintain a constant population size. At every step after, the Clones can divide one of three mutaully exclusive ways; duplication, death, or neutral division (no net change). NOTE: the probability of neutral division is computed by p_neutral = 1.0 - (p_duplicate + p_die) and not given explicitly. 
-For the division types, s = p_duplicate - p_die determines proliferation of Clones in the population. If s > 0 then Clones will proliferate faster. If s = 0 then the state of the simulation does not change with regard to the composition of the agents, if s < 0 then Clones tend to die off. When a new Clone is created, a Cell is randomly chosen to be removed from the simulation. When a Clone dies it is replaced with a randomly chosen Cell from the population. Thus, the population size throughout the simulation stays constant after the initial growth phase. By default, the simuation is repeated 100 times. The data from all runs of the simulation is collected into a compressed .csv file and some simple plots are created showing the methylation and population dynamics.
+The ABM simulates a constant size population of `Cells` and `Clones` after an initial growth phase. Each `Cell`/`Clone` is an agent with `n_genes` and `n_cpgs` per gene modeled as a 2D numpy array. Every CpG has a 'p_meth' independent probability of randomly gaining methylation (being flipped from a 0 -> 1) and an independent probability of becoming unmethylated if already methylated ('p_unmeth'). A single `Cell` is initialized at the start of the simulation. This `Cell` duplicates and then methylates/unmethylates until the target population size is reached. Following the growth phase, `Cell`s progress each step methylating/unmethylating stochastically until CH occurs. At a given age ('chip_time'), one of the `Cell`s is randomly chosen to become a `Clone` and one or more `Clone`s is initialized, replacing randomly selected `Cell`s to maintain a constant population size. At every step after, the `Clone`s can divide one of three mutually exclusive ways; duplication, death, or neutral division (no net change). NOTE: the probability of neutral division is computed by 'p_neutral' = 1.0 - ('p_duplicate' + 'p_die') and not given explicitly. 
+
+For the division types, s = 'p_duplicate' - 'p_die' determines proliferation of `Clone`s in the population. If s > 0 then `Clone`s will proliferate faster. If s = 0 then the state of the simulation does not change with regard to the composition of the agents, if s < 0 then `Clone`s tend to die off. To maintain a constant population size after the growth phase, division is strictly coupled with replacement. When a `Clone` duplicates, a randomly chosen normal `Cell` is removed. Conversely, when a `Clone` dies, a randomly chosen normal `Cell` divides to fill the niche. Thus, the population size throughout the simulation stays constant after the initial growth phase. 
+
+By default, the simulation is repeated 100 times. The data from all runs of the simulation is collected into a compressed .csv file and some simple plots are created showing the methylation and population dynamics.
 
 ## Set up and run
 
@@ -44,7 +47,7 @@ options:
   --prop-chip PROP_CHIP
                         Proportion of total population that will be turned into Clones at chip_time. (default: 0.02)
   --n-genes N_GENES     Number of genes (rows of CpG matrix) per agent. (default: 100)
-  --n-cpgs N_CPGS       Number of CpGs (columns od CpG matrix) per gene. (default: 10)
+  --n-cpgs N_CPGS       Number of CpGs (columns of CpG matrix) per gene. (default: 10)
   --p-meth P_METH       Probability of an unmethylated CpG becoming methylated per step. (default: 0.005)
   --p-unmeth P_UNMETH   Probability of a methylated CpG becoming unmethylated per step. (default: 1e-06)
   --init-meth INIT_METH
@@ -66,11 +69,13 @@ The current simulation has a lot of arguments to tweak. It's not immediately evi
 
 ### Simulating a constant 2% Clonal population size starting at CH onset
 
-2% of Cells are removed at onset of CH and are replaced by exact copies of a selected Clone. These Clones persist until the end of the simulation. Their methylation still drifts but the composition of the population never changes. `--n-proc 12` & `--runs 100` indicates that we will repeat this experiment using the same parameters with different random numbers generator seeds 100 times using 12 parallel processess. 
+2% of Cells are removed at onset of CH and are replaced by exact copies of a selected Clone. These Clones persist until the end of the simulation. Their methylation still drifts but the composition of the population never changes. `--n-proc 12` & `--runs 100` indicates that we will repeat this experiment using the same parameters with different random numbers generator seeds 100 times using 12 parallel processes. 
 
 ```{bash}
 uv run main.py --prop-chip 0.02 --p-duplicate 0.0 --p-die 0.0 --n-proc 12 --runs 100
 ```
+
+<img src="docs/example1.png" width="800" alt="Plot showing constant 2% clonal population">
 
 ### Simulating a single Clone at CH onset with exponential Clonal growth
 
@@ -80,15 +85,19 @@ Setting `--prop-chip` to a value that results in a fractional number of Clones a
 uv run main.py --n-agents 100 --prop-chip 1e-6 --p-duplicate 1.0 --p-die 0.0
 ```
 
+<img src="docs/example2.png" width="800" alt="Plot showing exponential clonal growth">
+
 ### Simulating 1% Clones at age 40 with a strong selection advantage over Cells
 
-The selection advantage (s) is given by `p_duplicate - p_die`. As stated above, if this value is positive then Clones have a fitness advantage over Cells. There are an infinite number of ways to tune these values to acheive the same value for `s`. See below for more information.
+The selection advantage (s) is given by `p_duplicate - p_die`. As stated above, if this value is positive then Clones have a fitness advantage over Cells. There are an infinite number of ways to tune these values to achieve the same value for `s`. See below for more information.
 
 ```{bash}
 uv run main.py --chip-time 40 --prop-chip 0.01 --p-duplicate 0.25 --p-die 0.2
 ```
 
-### Simulating different methylation drift/maintanence rates for Cells and Clones
+<img src="docs/example3.png" width="800" alt="Plot showing clones with selective advantage">
+
+### Simulating different methylation drift/maintenance rates for Cells and Clones
 
 The random chance of methylating or unmethylating a given CpG can be controlled for Cells and Clones independently. The initial methylation state of a Cell can also be set to simulate a founder Cell with a proportion methylation > 0.0 (1% below).
 
@@ -96,31 +105,5 @@ The random chance of methylating or unmethylating a given CpG can be controlled 
 uv run main.py --init-meth 0.01 --p-meth 0.01 --p-unmeth 0.001 --p-meth-clone 0.5 --p-unmeth-clone 0.01
 ```
 
-## Defining selective advantage (s)
+<img src="docs/example4.png" width="800" alt="Plot showing different drift rates and starting values">
 
-In the fixed-population model, cellular turnover and clonal expansion are driven by 3 probabilities:
-
-* $P(duplicate)$: The probability an agent divides.
-* $P(die)$: The probability an agent is removed and replaced.
-* $P(neutral)$ The probability an agent remains inactive.
-
-For a mutant clone to expand $s > 0$:
-
-$s = P(duplicate) - P(die)$
-
-Because the probabilities must sum to 1 the exact values can be tuned based on the desired baseline cellular turnover rate ( $P(neutral)$ ). Note that in a stochastic model like this one, initializing one Clone results in a high risk of early stochastic extinction (e.g., the agent rolls `p_die` on step 1), even with a strongly positive `s`.
-
-In a discrete-time model the growth of a mutant clone with a constant selective advantage `s` can be modeled using the discrete exponential growth equation:
-
-$C_t = C_0 * (1 + s)^t$
-
-Where:
-
-* $C_t$ is the target number of Clones.
-* $C_0$ is the initial number of Clones at induction.
-* $t$ is the number of simulation steps between induction and observation.
-* $s$ is the net selective advantage per step.
-
-To determine the required fitness advantage to reach a specific variant allele frequency (VAF) or cellular fraction within a fixed timeframe, solve for $s$:
-
-$s = (C_t / C_0)^{(1/t)}-1$

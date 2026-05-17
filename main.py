@@ -65,7 +65,7 @@ def parse_arguments():
         "--n-cpgs",
         type=int,
         default=10,
-        help="Number of CpGs (columns od CpG matrix) per gene.",
+        help="Number of CpGs (columns of CpG matrix) per gene.",
     )
     parser.add_argument(
         "--p-meth",

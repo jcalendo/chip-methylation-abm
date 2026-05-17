@@ -9,8 +9,8 @@ class Cell(mesa.Agent):
     Args:
         n_genes: Number of genes (rows)
         n_cpgs: Number of CpG sites per gene (columns)
-        p_meth: Probability of switching from a methylated state to an unmethylated CpG
-        p_unmeth: Probability of switching from an unmethylated state to a methylated CpG
+        p_meth: Probability of switching from an unmethylated state to a methylated CpG
+        p_unmeth: Probability of switching from a methylated state to an unmethylated CpG
         init_meth: Proportion of methylated CpG sites in the initial state
     """
 
@@ -41,18 +41,16 @@ class Cell(mesa.Agent):
         self.cpgs ^= do_meth | do_unmeth
 
     def duplicate(self):
-        """Copy information from one Cell into another. Used during growth phase."""
-        cell_agents = self.model.agents_by_type.get(Cell)
-        if cell_agents and len(cell_agents) > 0:
-            daughter = Cell(
-                self.model,
-                self.n_genes,
-                self.n_cpgs,
-                self.p_meth,
-                self.p_unmeth,
-                self.init_meth,
-            )
-            daughter.cpgs = self.cpgs.copy()
+        """Copy information from the parent Cell to the daughter cell. Used during growth phase."""
+        daughter = Cell(
+            self.model,
+            self.n_genes,
+            self.n_cpgs,
+            self.p_meth,
+            self.p_unmeth,
+            self.init_meth,
+        )
+        daughter.cpgs = self.cpgs.copy()
 
 
 class Clone(mesa.Agent):
@@ -62,8 +60,8 @@ class Clone(mesa.Agent):
     Args:
         n_genes: Number of genes (rows)
         n_cpgs: Number of CpG sites per gene (columns)
-        p_meth: Probability of switching from a methylated state to an unmethylated CpG
-        p_unmeth: Probability of switching from an unmethylated state to a methylated CpG
+        p_meth: Probability of switching from an unmethylated state to a methylated CpG
+        p_unmeth: Probability of switching from a methylated state to an unmethylated CpG
         p_duplicate: Probability of a clone creating a copy of itself and removing a random Cell
         p_die: Probability of a clone dying and being replaced by a random Cell
     """
@@ -128,7 +126,7 @@ class Clone(mesa.Agent):
                 parent_cell = self.random.choice(cell_agents)
 
                 # Register the new Cell
-                Cell(
+                daughter = Cell(
                     self.model,
                     parent_cell.n_genes,
                     parent_cell.n_cpgs,
@@ -136,5 +134,6 @@ class Clone(mesa.Agent):
                     parent_cell.p_unmeth,
                     parent_cell.init_meth,
                 )
+                daughter.cpgs = parent_cell.cpgs.copy()
 
                 self.remove()

@@ -89,7 +89,7 @@ uv run main.py --n-agents 100 --prop-chip 1e-6 --p-duplicate 1.0 --p-die 0.0
 
 ### Simulating 1% Clones at age 40 with a strong selection advantage over Cells
 
-The selection advantage (s) is given by `p_duplicate - p_die`. As stated above, if this value is positive then Clones have a fitness advantage over Cells. There are an infinite number of ways to tune these values to achieve the same value for `s`. See below for more information.
+The selection advantage (s) is given by `p_duplicate - p_die`. As stated above, if this value is positive then Clones have a fitness advantage over Cells. There are an infinite number of ways to tune these values to achieve the same value for `s`.
 
 ```{bash}
 uv run main.py --chip-time 40 --prop-chip 0.01 --p-duplicate 0.25 --p-die 0.2
@@ -99,10 +99,16 @@ uv run main.py --chip-time 40 --prop-chip 0.01 --p-duplicate 0.25 --p-die 0.2
 
 ### Simulating different methylation drift/maintenance rates for Cells and Clones
 
-The random chance of methylating or unmethylating a given CpG can be controlled for Cells and Clones independently. The initial methylation state of a Cell can also be set to simulate a founder Cell with a proportion methylation > 0.0 (1% below).
+The random chance of methylating or unmethylating a given CpG can be controlled for Cells and Clones independently. The initial methylation state of the founder Cell can also be set to simulate a founder Cell with a proportion methylation != 0.0.
 
 ```{bash}
-uv run main.py --init-meth 0.01 --p-meth 0.01 --p-unmeth 0.001 --p-meth-clone 0.5 --p-unmeth-clone 0.01
+uv run main.py \
+  --init-meth 0.25 \
+  --prop-chip 0.1 \
+  --p-meth 0.001 \
+  --p-unmeth 1e-6 \
+  --p-meth-clone 0.01 \
+  --p-unmeth-clone 0.001
 ```
 
 <img src="docs/example4.png" width="800" alt="Plot showing different drift rates and starting values">

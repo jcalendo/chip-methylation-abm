@@ -101,7 +101,7 @@ def population_jsd(agentset):
         return np.nan
 
     # Just need one agent to get params
-    first_agent = agentset[0]
+    first_agent = next(iter(agentset))
     n_cpgs = first_agent.n_cpgs
     n_cells = len(agentset)
 
@@ -116,3 +116,142 @@ def population_jsd(agentset):
     jsds = jensenshannon(freqs, reference, axis=1) ** 2
 
     return np.mean(jsds)
+
+def population_mean_locus_variance(agentset):
+    """
+    Measures intra-population heterogeneity by averaging the variance 
+    of every individual CpG site across the population.
+    """
+    if len(agentset) < 2:
+        return np.nan
+
+    # Shape: (n_cells, n_genes, n_cpgs)
+    population = np.array([a.cpgs for a in agentset])
+    
+    # Calculate variance along the cell axis (axis=0)
+    # Shape becomes: (n_genes, n_cpgs)
+    locus_variances = np.var(population, axis=0, ddof=1)
+    
+    # Return the global average of these variances
+    return np.mean(locus_variances)
+
+def population_discordance_fraction(agentset, lower_bound=0.2, upper_bound=0.8):
+    """
+    Measures the fraction of genes across the population that exhibit 
+    discordant (intermediate) methylation patterns.
+    """
+    if len(agentset) == 0:
+        return np.nan
+
+    population = np.array([a.cpgs for a in agentset])
+    
+    # Calculate methylation fraction per gene per cell
+    n_cpgs = population.shape[2]
+    gene_meth_fractions = np.sum(population, axis=2) / n_cpgs
+    
+    # Identify discordant genes (between the bounds)
+    is_discordant = (gene_meth_fractions > lower_bound) & (gene_meth_fractions < upper_bound)
+    
+    return np.mean(is_discordant)
+
+def population_epigenetic_burden(agentset, threshold=0.10):
+    """
+    Measures the fraction of the population that exceeds a defined 
+    mean methylation threshold. 
+    """
+    if len(agentset) == 0:
+        return np.nan
+
+    first_agent = next(iter(agentset))
+    baseline = first_agent.init_meth 
+    
+    population = np.array([a.cpgs for a in agentset])
+    cell_means = np.mean(population, axis=(1, 2))
+    
+    # Calculate fraction of cells exceeding baseline + threshold
+    outlier_count = np.sum(cell_means > (baseline + threshold))
+    
+    return outlier_count / len(agentset)
+
+def population_gini(agentset):
+    """
+    Computes the Gini coefficient of mean cell methylation across the population.
+    Utilizes a sorted array calculation to maintain O(N log N) time complexity.
+    """
+    if len(agentset) < 2:
+        return np.nan
+
+    population = np.array([a.cpgs for a in agentset])
+    
+    # Get the "wealth" (mean methylation) of each cell
+    cell_means = np.mean(population, axis=(1, 2))
+    
+    # Fast Gini calculation
+    sorted_means = np.sort(cell_means)
+    n = len(sorted_means)
+    total_meth = np.sum(sorted_means)
+    
+    # Prevent division by zero if the entire population is completely unmethylated
+    if total_meth == 0:
+        return 0.0
+        
+    index = np.arange(1, n + 1)
+    gini = (np.sum((2 * index - n - 1) * sorted_means)) / (n * total_meth)
+    
+    return gini
+
+def population_alpha_simpson(agentset, num_bins=10):
+    """
+    Computes Simpson's Diversity Index (1 - D) for the population.
+    Requires binning the continuous methylation means into discrete 'species'.
+    """
+    if len(agentset) < 2:
+        return np.nan
+
+    population = np.array([a.cpgs for a in agentset])
+    cell_means = np.mean(population, axis=(1, 2))
+    
+    # Bin the cells into discrete 'species' based on their methylation burden
+    counts, _ = np.histogram(cell_means, bins=num_bins, range=(0.0, 1.0))
+    
+    # Calculate proportions (p_i)
+    proportions = counts / len(agentset)
+    
+    # Simpson's Index D = sum(p_i^2)
+    simpson_d = np.sum(proportions ** 2)
+    
+    # Return Gini-Simpson Index (1 - D) where higher = more diverse
+    return 1.0 - simpson_d
+
+def population_beta_bray_curtis(agentset, num_bins=10):
+    """
+    Measures the Bray-Curtis dissimilarity between the current population 
+    and a theoretical Day-0 baseline population.
+    """
+    if len(agentset) < 2:
+        return np.nan
+        
+    # Get the baseline state from the first agent in the set
+    first_agent = next(iter(agentset))
+    baseline_meth = first_agent.init_meth
+
+    population = np.array([a.cpgs for a in agentset])
+    cell_means = np.mean(population, axis=(1, 2))
+    
+    # Current population distribution
+    current_counts, _ = np.histogram(cell_means, bins=num_bins, range=(0.0, 1.0))
+    current_freqs = current_counts / len(agentset)
+    
+    # Theoretical baseline distribution (all cells clustered at init_meth)
+    baseline_counts = np.zeros(num_bins)
+    baseline_bin_index = int(baseline_meth * (num_bins - 1))
+    baseline_counts[baseline_bin_index] = 1.0 
+    
+    # Bray-Curtis calculation: sum(|A - B|) / sum(A + B)
+    numerator = np.sum(np.abs(current_freqs - baseline_counts))
+    denominator = np.sum(current_freqs + baseline_counts)
+    
+    if denominator == 0:
+        return 0.0
+        
+    return numerator / denominator

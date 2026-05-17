@@ -165,7 +165,6 @@ class AgingModel(mesa.Model):
 
     def step(self):
         """Advances the simulation by one step."""
-        self.datacollector.collect(self)
 
         if self.is_growing:
             self.agents.shuffle_do("duplicate")
@@ -173,3 +172,5 @@ class AgingModel(mesa.Model):
         else:
             self.agents.shuffle_do("methylate")
             self.agents.select(agent_type=Clone).shuffle_do("divide")
+        
+        self.datacollector.collect(self)

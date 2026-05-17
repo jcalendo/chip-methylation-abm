@@ -42,7 +42,7 @@ options:
   --chip-time CHIP_TIME
                         Step (year) at which the first mutant Clone is introduced. (default: 50)
   --prop-chip PROP_CHIP
-                        Proportion of total poopulation that will be turned into Clones at chip_time. (default: 0.02)
+                        Proportion of total population that will be turned into Clones at chip_time. (default: 0.02)
   --n-genes N_GENES     Number of genes (rows of CpG matrix) per agent. (default: 100)
   --n-cpgs N_CPGS       Number of CpGs (columns od CpG matrix) per gene. (default: 10)
   --p-meth P_METH       Probability of an unmethylated CpG becoming methylated per step. (default: 0.005)

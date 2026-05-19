@@ -30,7 +30,7 @@ def jsd_unmeth(agent):
     ref_vec = np.zeros(agent.n_cpgs + 1)
     ref_vec[0] = 1.0
 
-    return jensenshannon(freqs, ref_vec) ** 2
+    return jensenshannon(freqs, ref_vec, base=2, axis=1) ** 2
 
 
 def evenness(agent):
@@ -113,7 +113,7 @@ def population_jsd(agentset):
 
     reference = np.zeros((1, n_cpgs + 1))
     reference[0, 0] = 1.0
-    jsds = jensenshannon(freqs, reference, axis=1) ** 2
+    jsds = jensenshannon(freqs, reference, base=2, axis=1) ** 2
 
     return np.mean(jsds)
 

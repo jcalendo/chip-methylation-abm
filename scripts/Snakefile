@@ -2,6 +2,8 @@
 # Grid search over proportion of Clones and different epigenetic drift rates. Assume no selective 
 # advantage for Clones by setting --p-duplicate=0.0 and --p-die=0.0
 #
+# Run with `uv run snakemake -c 24` inside the scripts directory
+#
 # -------------------------------------------------------------------------------------------------
 PROP_CHIP = [0.001, 0.01, 0.02, 0.05, 0.1, 0.25, 0.5]
 P_METH = [0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5]
@@ -20,7 +22,7 @@ rule run_simulation:
     threads: 4
     shell:
         """
-        uv run main.py \
+        uv run ../main.py \
             --prop-chip {wildcards.prop} \
             --p-meth {wildcards.meth} \
             --p-duplicate 0.0 \

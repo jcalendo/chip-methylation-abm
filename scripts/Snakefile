@@ -1,0 +1,31 @@
+#
+# Grid search over proportion of Clones and different epigenetic drift rates. Assume no selective 
+# advantage for Clones by setting --p-duplicate=0.0 and --p-die=0.0
+#
+# -------------------------------------------------------------------------------------------------
+PROP_CHIP = [0.001, 0.01, 0.02, 0.05, 0.1, 0.25, 0.5]
+P_METH = [0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5]
+
+
+rule all:
+    input:
+        expand("results/prop_{prop}_pmeth_{meth}.csv.gz", prop=PROP_CHIP, meth=P_METH),
+        expand("results/prop_{prop}_pmeth_{meth}.png", prop=PROP_CHIP, meth=P_METH)
+
+
+rule run_simulation:
+    output:
+        csv="results/prop_{prop}_pmeth_{meth}.csv.gz",
+        png="results/prop_{prop}_pmeth_{meth}.png"
+    threads: 4
+    shell:
+        """
+        uv run main.py \
+            --prop-chip {wildcards.prop} \
+            --p-meth {wildcards.meth} \
+            --p-duplicate 0.0 \
+            --p-die 0.0 \
+            --n-proc {threads} \
+            --outfile {output.csv} \
+            --quiet
+        """

@@ -27,6 +27,8 @@ rule run_simulation:
             --p-meth {wildcards.meth} \
             --p-duplicate 0.0 \
             --p-die 0.0 \
+            --p-unmeth 0.0 \
+            --p-unmeth-clone 0.0 \
             --n-proc {threads} \
             --outfile {output.csv} \
             --quiet

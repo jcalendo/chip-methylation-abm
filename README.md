@@ -2,8 +2,6 @@
 
 **Work-in-progress** experimenting with methylation heterogeneity metrics and ABMs. 
 
-Here is a rewritten version that breaks the dense paragraphs into a highly scannable, logical hierarchy. By separating the agent structure, the timeline of the simulation, and the evolutionary mechanics, it becomes much easier for readers to grasp the entire system at a glance.
-
 ## Simulation Overview
 
 The Agent-Based Model (ABM) simulates the epigenetic drift of a hematopoietic cell population over time, culminating in Clonal Hematopoiesis (CH).

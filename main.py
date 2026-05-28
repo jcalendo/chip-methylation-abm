@@ -199,12 +199,15 @@ def main():
     if not args.quiet:
         print(f"Writing results to {args.outfile}")
     
-    plot_outfile = args.outfile.replace(".csv.gz", ".png")
-    plot_simulation_metrics(df=results_df, output_path=plot_outfile)
-    
-    if not args.quiet:
-        print(f"Plot saved to {plot_outfile}")
-        print("Simulation Complete!")
+    try:
+        plot_outfile = args.outfile.replace(".csv.gz", ".png")
+        plot_simulation_metrics(df=results_df, output_path=plot_outfile)
+        if not args.quiet:
+            print(f"Plot saved to {plot_outfile}")
+            print("Simulation Complete!")
+    except Exception as err:
+        print("Could not create plots from simulated data. Skipping...")
+        print(err)
 
 
 if __name__ == "__main__":

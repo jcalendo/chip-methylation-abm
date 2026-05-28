@@ -2,11 +2,41 @@
 
 **Work-in-progress** experimenting with methylation heterogeneity metrics and ABMs. 
 
-The ABM simulates a constant size population of `Cells` and `Clones` after an initial growth phase. Each `Cell`/`Clone` is an agent with `n_genes` and `n_cpgs` per gene modeled as a 2D numpy array. Every CpG has a 'p_meth' independent probability of randomly gaining methylation (being flipped from a 0 -> 1) and an independent probability of becoming unmethylated if already methylated ('p_unmeth'). A single `Cell` is initialized at the start of the simulation. This `Cell` duplicates and then methylates/unmethylates until the target population size is reached. Following the growth phase, `Cell`s progress each step methylating/unmethylating stochastically until CH occurs. At a given age ('chip_time'), one of the `Cell`s is randomly chosen to become a `Clone` and one or more `Clone`s is initialized, replacing randomly selected `Cell`s to maintain a constant population size. At every step after, the `Clone`s can divide one of three mutually exclusive ways; duplication, death, or neutral division (no net change). NOTE: the probability of neutral division is computed by 'p_neutral' = 1.0 - ('p_duplicate' + 'p_die') and not given explicitly. 
+Here is a rewritten version that breaks the dense paragraphs into a highly scannable, logical hierarchy. By separating the agent structure, the timeline of the simulation, and the evolutionary mechanics, it becomes much easier for readers to grasp the entire system at a glance.
 
-For the division types, s = 'p_duplicate' - 'p_die' determines proliferation of `Clone`s in the population. If s > 0 then `Clone`s will proliferate faster. If s = 0 then the state of the simulation does not change with regard to the composition of the agents, if s < 0 then `Clone`s tend to die off. To maintain a constant population size after the growth phase, division is strictly coupled with replacement. When a `Clone` duplicates, a randomly chosen normal `Cell` is removed. Conversely, when a `Clone` dies, a randomly chosen normal `Cell` divides to fill the niche. Thus, the population size throughout the simulation stays constant after the initial growth phase. 
+## Simulation Overview
 
-By default, the simulation is repeated 100 times. The data from all runs of the simulation is collected into a compressed .csv file and some simple plots are created showing the methylation and population dynamics.
+The Agent-Based Model (ABM) simulates the epigenetic drift of a hematopoietic cell population over time, culminating in Clonal Hematopoiesis (CH).
+
+**Agent Structure & Epigenetic Drift**
+Each `Cell` and `Clone` is mathematically represented as a 2D NumPy array of genes and CpG sites (`n_genes` $\times$ `n_cpgs`). At every simulation step, each CpG site operates under two independent stochastic probabilities:
+
+* `p_meth`: The probability of gaining methylation ($0 \rightarrow 1$).
+* `p_unmeth`: The probability of losing methylation ($1 \rightarrow 0$).
+
+### Phases of the Simulation
+
+1. **Developmental Growth:** The model initializes with a single founder `Cell`. This cell duplicates and undergoes methylation drift until the target population size is reached.
+2. **Homeostatic Drift:** Once the target size is reached, the population size becomes strictly fixed. Normal `Cells` continue to age and drift stochastically at each step.
+3. **CHIP Onset:** At a designated age (`chip_time`), a mutational event is triggered. One or more normal `Cells` are converted into mutant `Clones`.
+
+### Clonal Dynamics & Selection
+
+Following CHIP onset, `Clones` compete with normal `Cells`. Because the population is modeled at a constant capacity, all clonal division is strictly coupled with replacement (a Moran process):
+
+* **Duplication (`p_duplicate`):** A `Clone` divides, and a randomly selected normal `Cell` is removed.
+* **Death (`p_die`):** A `Clone` dies, and a randomly selected normal `Cell` divides to fill the empty niche.
+* **Neutral (`p_neutral`):** The clone survives but does not net-expand or shrink. Note: `p_neutral` is computed implicitly as $1.0 - (p_{duplicate} + p_{die})$.
+
+The evolutionary fitness of the mutant clone is governed by its selective advantage ($s$):
+
+$$s = p_{duplicate} - p_{die}$$
+
+If $s > 0$, the clone will expand and outcompete normal cells. If $s = 0$, the clone drifts neutrally. If $s < 0$, the clone is selected against and will eventually die off.
+
+### Execution & Outputs
+
+By default, the simulation executes 100 independent iterations. Data across all runs is aggregated into a compressed `.csv` file and automatically processed into plots visualizing population dynamics and methylation heterogeneity over time.
 
 ## Set up and run
 

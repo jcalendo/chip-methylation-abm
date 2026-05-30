@@ -7,6 +7,7 @@
 The Agent-Based Model (ABM) simulates the epigenetic drift of a hematopoietic cell population over time, culminating in Clonal Hematopoiesis (CH).
 
 **Agent Structure & Epigenetic Drift**
+
 Each `Cell` and `Clone` is mathematically represented as a 2D NumPy array of genes and CpG sites (`n_genes` $\times$ `n_cpgs`). At every simulation step, each CpG site operates under two independent stochastic probabilities:
 
 * `p_meth`: The probability of gaining methylation ($0 \rightarrow 1$).
@@ -22,8 +23,8 @@ Each `Cell` and `Clone` is mathematically represented as a 2D NumPy array of gen
 
 Following CHIP onset, `Clones` compete with normal `Cells`. Because the population is modeled at a constant capacity, all clonal division is strictly coupled with replacement (a Moran process):
 
-* **Duplication (`p_duplicate`):** A `Clone` divides, and a randomly selected normal `Cell` is removed.
-* **Death (`p_die`):** A `Clone` dies, and a randomly selected normal `Cell` divides to fill the empty niche.
+* **Duplication (`p_duplicate`):** A `Clone` divides, and a randomly selected `Cell` or `Clone` is removed.
+* **Death (`p_die`):** A `Clone` dies, and a randomly selected normal `Cell` or `Clone` divides to fill the empty niche.
 * **Neutral (`p_neutral`):** The clone survives but does not net-expand or shrink. Note: `p_neutral` is computed implicitly as $1.0 - (p_{duplicate} + p_{die})$.
 
 The evolutionary fitness of the mutant clone is governed by its selective advantage ($s$):

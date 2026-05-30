@@ -89,21 +89,17 @@ class Clone(mesa.Agent):
         self.cpgs ^= do_meth | do_unmeth
 
     def divide(self):
-        """Execute one of the three cell division types."""
-        division_type = np.random.choice(
-            ["neutral", "duplicate", "die"],
-            p=[self.p_neutral, self.p_duplicate, self.p_die],
-        )
+            """Execute one of the three cell division types using Moran mechanics."""
+            division_type = np.random.choice(
+                ["neutral", "duplicate", "die"],
+                p=[self.p_neutral, self.p_duplicate, self.p_die],
+            )
 
-        # No net change
-        if division_type == "neutral":
-            pass
+            if division_type == "neutral":
+                pass
 
-        # Randomly chosen Cell gets replaced by a copy of the Clone
-        elif division_type == "duplicate":
-            cell_agents = self.model.agents_by_type.get(Cell)
-
-            if cell_agents and len(cell_agents) > 0:
+            # Clone duplicates and a random Agent is removed
+            elif division_type == "duplicate":
                 daughter = Clone(
                     self.model,
                     self.n_genes,
@@ -111,29 +107,37 @@ class Clone(mesa.Agent):
                     self.p_meth,
                     self.p_unmeth,
                     self.p_duplicate,
-                    self.p_die,
-                )
+                    self.p_die
+                    )
                 daughter.cpgs = self.cpgs.copy()
 
-                target = self.random.choice(cell_agents)
+                target = self.random.choice(self.model.agents)
                 target.remove()
 
-        # Clone 'dies' and gets replaced with a randomly chosen Cell
-        elif division_type == "die":
-            cell_agents = self.model.agents_by_type.get(Cell)
+            # Present Clone is replaced by a random Agent
+            elif division_type == "die":
 
-            if cell_agents and len(cell_agents) > 0:
-                parent_cell = self.random.choice(cell_agents)
+                parent_agent = self.random.choice(self.model.agents)
 
-                # Register the new Cell
-                daughter = Cell(
-                    self.model,
-                    parent_cell.n_genes,
-                    parent_cell.n_cpgs,
-                    parent_cell.p_meth,
-                    parent_cell.p_unmeth,
-                    parent_cell.init_meth,
-                )
-                daughter.cpgs = parent_cell.cpgs.copy()
-
+                if isinstance(parent_agent, Clone):
+                    daughter = Clone(
+                        self.model,
+                        parent_agent.n_genes,
+                        parent_agent.n_cpgs,
+                        parent_agent.p_meth,
+                        parent_agent.p_unmeth,
+                        parent_agent.p_duplicate,
+                        parent_agent.p_die,
+                    )
+                else:
+                    daughter = Cell(
+                        self.model,
+                        parent_agent.n_genes,
+                        parent_agent.n_cpgs,
+                        parent_agent.p_meth,
+                        parent_agent.p_unmeth,
+                        parent_agent.init_meth,
+                    )
+                
+                daughter.cpgs = parent_agent.cpgs.copy()
                 self.remove()

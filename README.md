@@ -6,7 +6,7 @@
 
 The Agent-Based Model (ABM) simulates the epigenetic drift of a hematopoietic cell population over time, culminating in Clonal Hematopoiesis (CH).
 
-**Agent Structure & Epigenetic Drift**
+### Agent Structure & Epigenetic Drift
 
 Each `Cell` and `Clone` is mathematically represented as a 2D NumPy array of genes and CpG sites (`n_genes` $\times$ `n_cpgs`). At every simulation step, each CpG site operates under two independent stochastic probabilities:
 

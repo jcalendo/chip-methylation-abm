@@ -5,11 +5,15 @@ import numpy as np
 
 from agents import Cell, Clone
 from metrics import (
+    bulk_beta,
     mean_methylation,
     population_meth_mean,
     population_meth_var,
     population_jsd,
 )
+from rates import RateProfile
+
+INIT_MODES = ("founder", "independent")
 
 
 def _check_prob(name, value):
@@ -49,17 +53,28 @@ class AgingModel(mesa.Model):
         prop_chip,
         p_duplicate,
         p_die,
+        rate_profile=None,
+        init_mode="founder",
+        sample_steps=(),
         debug=False,
         rng=None,
     ):
+        """
+        Args (beyond the scalar rates):
+            rate_profile: None to broadcast the scalar rate arguments to every CpG, or the path of a
+                per-CpG rate CSV (see rates.py), in which case the scalar rate arguments are ignored.
+                Must be a string, not an array: mesa.batch_run sweeps iterable parameters.
+            init_mode: "founder" (the founder's pattern is copied to every cell) or "independent"
+                (at the end of growth every cell redraws each site from init_meth).
+            sample_steps: steps at which to store per-site bulk beta in `site_snapshots`, keyed by
+                the same Step label as the DataCollector rows. Used by runner.py, not batch_run.
+            debug: check population invariants at the end of every step.
+        """
         super().__init__(rng=rng)
 
+        if init_mode not in INIT_MODES:
+            raise ValueError(f"init_mode ({init_mode!r}) must be one of {INIT_MODES}")
         for name, value in [
-            ("p_meth", p_meth),
-            ("p_unmeth", p_unmeth),
-            ("init_meth", init_meth),
-            ("p_meth_clone", p_meth_clone),
-            ("p_unmeth_clone", p_unmeth_clone),
             ("p_duplicate", p_duplicate),
             ("p_die", p_die),
             ("prop_chip", prop_chip),
@@ -72,19 +87,24 @@ class AgingModel(mesa.Model):
         if n_agents < 1:
             raise ValueError(f"n_agents ({n_agents}) must be >= 1")
 
+        if rate_profile is None:
+            self.rates = RateProfile.from_scalars(
+                n_genes, n_cpgs, p_meth, p_unmeth, p_meth_clone, p_unmeth_clone, init_meth
+            )
+        else:
+            self.rates = RateProfile.from_csv(rate_profile, n_genes, n_cpgs)
+
         self.n_genes = n_genes
         self.n_cpgs = n_cpgs
-        self.p_meth = p_meth
-        self.p_unmeth = p_unmeth
-        self.init_meth = init_meth
-        self.p_meth_clone = p_meth_clone
-        self.p_unmeth_clone = p_unmeth_clone
+        self.init_mode = init_mode
         self.p_duplicate = p_duplicate
         self.p_die = p_die
         self.chip_time = chip_time
         self.target_population = n_agents
         self.prop_chip = prop_chip
         self.debug = debug
+        self.sample_steps = frozenset(sample_steps)
+        self.site_snapshots = {}
 
         # Compute growth phase steps needed to reach target population size
         self.growth_steps = math.ceil(math.log2(self.target_population))
@@ -97,14 +117,7 @@ class AgingModel(mesa.Model):
             )
 
         # Founder cell
-        Cell(
-            model=self,
-            n_genes=n_genes,
-            n_cpgs=n_cpgs,
-            p_meth=p_meth,
-            p_unmeth=p_unmeth,
-            cpgs=self._founder_pattern(),
-        )
+        Cell(self, cpgs=self._founder_pattern())
 
         self.schedule_event(self.end_growth_phase, at=self.growth_steps)
         self.schedule_event(self.trigger_chip_random, at=chip_time)
@@ -139,17 +152,40 @@ class AgingModel(mesa.Model):
 
     def _founder_pattern(self):
         """
-        Initial CpG state of the founder: exactly round(init_meth * total) methylated sites in random
-        positions. No random numbers are drawn when init_meth == 0.
+        Initial CpG state of the founder. With a scalar init_meth the founder has exactly
+        round(init_meth * n_sites) methylated sites in random positions (the original behaviour);
+        with a per-site init_meth each site is drawn independently. No random numbers are drawn
+        when init_meth is zero everywhere.
         """
-        shape = (self.n_genes, self.n_cpgs)
-        if self.init_meth == 0:
-            return np.zeros(shape, dtype=int)
-        total_cpgs = self.n_genes * self.n_cpgs
-        num_ones = int(round(self.init_meth * total_cpgs))
-        arr = np.concatenate((np.ones(num_ones), np.zeros(total_cpgs - num_ones)))
-        self.rng.shuffle(arr)
-        return arr.reshape(shape).astype(int)
+        rates = self.rates
+        if rates.is_zero("init_meth"):
+            return np.zeros(rates.shape, dtype=int)
+        if rates.init_is_scalar:
+            num_ones = int(round(float(rates.init_meth.flat[0]) * rates.n_sites))
+            arr = np.concatenate((np.ones(num_ones), np.zeros(rates.n_sites - num_ones)))
+            self.rng.shuffle(arr)
+            return arr.reshape(rates.shape).astype(int)
+        return self._bernoulli_pattern()
+
+    def _bernoulli_pattern(self):
+        """Draw each site independently: methylated with probability init_meth at that site."""
+        rates = self.rates
+        if rates.is_zero("init_meth"):
+            return np.zeros(rates.shape, dtype=int)
+        return (self.rng.random(rates.shape) < rates.init_meth).astype(int)
+
+    def snapshot(self):
+        """Per-site bulk beta for all agents, Cells and Clones, plus the clone fraction."""
+        n_sites = self.rates.n_sites
+        cells = self.agents.select(agent_type=Cell)
+        clones = self.agents.select(agent_type=Clone)
+        n_total = len(self.agents)
+        return {
+            "all": bulk_beta(self.agents, n_sites),
+            "cell": bulk_beta(cells, n_sites),
+            "clone": bulk_beta(clones, n_sites),
+            "clone_frac": len(clones) / n_total if n_total else np.nan,
+        }
 
     def end_growth_phase(self):
         """Prunes the population back down to a fixed number of agents"""
@@ -160,6 +196,10 @@ class AgingModel(mesa.Model):
             to_remove = self.random.sample(list(current_cells), excess)
             for cell in to_remove:
                 cell.remove()
+
+        if self.init_mode == "independent":
+            for cell in self.agents:
+                cell.cpgs = self._bernoulli_pattern()
 
         self.is_growing = False
 
@@ -173,16 +213,7 @@ class AgingModel(mesa.Model):
     def _replace_with_clones(self, targets, clone_template):
         """Replace each target Cell with a Clone carrying a copy of the template's CpGs."""
         for target in targets:
-            Clone(
-                self,
-                self.n_genes,
-                self.n_cpgs,
-                self.p_meth_clone,
-                self.p_unmeth_clone,
-                self.p_duplicate,
-                self.p_die,
-                cpgs=clone_template.cpgs.copy(),
-            )
+            Clone(self, cpgs=clone_template.cpgs.copy())
             target.remove()
 
     def trigger_chip_random(self):
@@ -215,6 +246,8 @@ class AgingModel(mesa.Model):
     def step(self):
         """Advances the simulation by one step."""
         self.datacollector.collect(self)
+        if self.steps in self.sample_steps:
+            self.site_snapshots[self.steps] = self.snapshot()
 
         if self.is_growing:
             self.agents.shuffle_do("duplicate")

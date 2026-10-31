@@ -68,6 +68,17 @@ def emd_unmeth(agent):
 # Population-level metrics -----------------------------------------------------------------------
 
 
+def bulk_beta(agentset, n_sites):
+    """
+    Per-site bulk methylation (beta): the mean of each CpG across agents, flattened to one value
+    per site in row-major (gene, cpg) order. All NaN for an empty set.
+    """
+    if len(agentset) == 0:
+        return np.full(n_sites, np.nan)
+    population = np.array([a.cpgs for a in agentset])
+    return population.mean(axis=0).ravel()
+
+
 def population_meth_mean(agentset):
     """Mean methylation across all agents, genes and CpGs. NaN only for an empty set."""
     if len(agentset) == 0:
@@ -163,7 +174,7 @@ def population_epigenetic_burden(agentset, threshold=0.10):
         return np.nan
 
     first_agent = next(iter(agentset))
-    baseline = first_agent.model.init_meth
+    baseline = float(np.mean(first_agent.model.rates.init_meth))
     
     population = np.array([a.cpgs for a in agentset])
     cell_means = np.mean(population, axis=(1, 2))
@@ -233,7 +244,7 @@ def population_beta_bray_curtis(agentset, num_bins=10):
         
     # Get the baseline state from the first agent in the set
     first_agent = next(iter(agentset))
-    baseline_meth = first_agent.model.init_meth
+    baseline_meth = float(np.mean(first_agent.model.rates.init_meth))
 
     population = np.array([a.cpgs for a in agentset])
     cell_means = np.mean(population, axis=(1, 2))

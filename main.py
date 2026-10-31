@@ -134,14 +134,24 @@ def parse_arguments(argv=None):
         "--p-duplicate",
         type=float,
         default=0.0,
-        help="Probability of a Clone duplicating and replacing a random agent (Cell or Clone).",
+        help="Extra per-step probability (on top of --p-turnover) that a Clone divides and its "
+        "daughter replaces a random agent. The selective advantage s = p_duplicate - p_die is "
+        "relative to normal cells.",
     )
     parser.add_argument(
         "--p-die",
         type=float,
         default=0.0,
-        help="Probability of a Clone dying and being replaced by a copy of a random agent "
+        help="Per-step probability that a Clone dies and is replaced by a copy of a random agent "
         "(Cell or Clone).",
+    )
+    parser.add_argument(
+        "--p-turnover",
+        type=float,
+        default=0.0,
+        help="Per-step probability that each agent (Cell or Clone) divides after the growth "
+        "phase, its daughter replacing a random agent (neutral Moran turnover). "
+        "p_turnover + p_duplicate + p_die must be <= 1.",
     )
 
     # Per-CpG rates and per-site output
@@ -235,6 +245,7 @@ def print_banner(args, width=55):
     print_row("Proportion of Clones at CHIP", args.prop_chip)
     print_row("Clone duplication probability", args.p_duplicate)
     print_row("Clone removal probability", args.p_die)
+    print_row("Turnover probability (all agents)", args.p_turnover)
     print("└" + "─" * width + "┘\n")
 
 
@@ -259,6 +270,8 @@ def build_params(args):
         params["rate_profile"] = args.rate_profile
     if args.init_mode != "founder":
         params["init_mode"] = args.init_mode
+    if args.p_turnover != 0.0:
+        params["p_turnover"] = args.p_turnover
     return params
 
 

@@ -10,6 +10,8 @@ from metrics import (
     population_meth_mean,
     population_meth_var,
     population_jsd,
+    population_largest_lineage_fraction,
+    population_lineage_count,
 )
 from rates import RateProfile
 
@@ -53,6 +55,7 @@ class AgingModel(mesa.Model):
         prop_chip,
         p_duplicate,
         p_die,
+        p_turnover=0.0,
         rate_profile=None,
         init_mode="founder",
         sample_steps=(),
@@ -61,6 +64,10 @@ class AgingModel(mesa.Model):
     ):
         """
         Args (beyond the scalar rates):
+            p_turnover: per-step probability that each agent (Cell or Clone) divides after the
+                growth phase, its daughter replacing a random agent (neutral Moran turnover).
+                Clones divide with p_turnover + p_duplicate, so s = p_duplicate - p_die is the
+                advantage relative to normal cells.
             rate_profile: None to broadcast the scalar rate arguments to every CpG, or the path of a
                 per-CpG rate CSV (see rates.py), in which case the scalar rate arguments are ignored.
                 Must be a string, not an array: mesa.batch_run sweeps iterable parameters.
@@ -77,12 +84,14 @@ class AgingModel(mesa.Model):
         for name, value in [
             ("p_duplicate", p_duplicate),
             ("p_die", p_die),
+            ("p_turnover", p_turnover),
             ("prop_chip", prop_chip),
         ]:
             _check_prob(name, value)
-        if p_duplicate + p_die > 1.0:
+        if p_turnover + p_duplicate + p_die > 1.0:
             raise ValueError(
-                f"p_duplicate ({p_duplicate}) + p_die ({p_die}) must be <= 1.0"
+                f"p_turnover ({p_turnover}) + p_duplicate ({p_duplicate}) + p_die ({p_die}) "
+                "must be <= 1.0"
             )
         if n_agents < 1:
             raise ValueError(f"n_agents ({n_agents}) must be >= 1")
@@ -99,12 +108,15 @@ class AgingModel(mesa.Model):
         self.init_mode = init_mode
         self.p_duplicate = p_duplicate
         self.p_die = p_die
+        self.p_turnover = p_turnover
         self.chip_time = chip_time
         self.target_population = n_agents
         self.prop_chip = prop_chip
         self.debug = debug
         self.sample_steps = frozenset(sample_steps)
         self.site_snapshots = {}
+        self.clone_lineage = None  # lineage id shared by the Clones created at CHIP onset
+        self.clone_parent_lineage = None  # lineage id of the Cell used as the clone template
 
         # Compute growth phase steps needed to reach target population size
         self.growth_steps = math.ceil(math.log2(self.target_population))
@@ -146,6 +158,10 @@ class AgingModel(mesa.Model):
                 ),
                 "Clone_Mean_JSD": lambda m: population_jsd(
                     m.agents.select(agent_type=Clone)
+                ),
+                "Lineage_Count": lambda m: population_lineage_count(m.agents),
+                "Largest_Lineage_Fraction": lambda m: population_largest_lineage_fraction(
+                    m.agents
                 ),
             }
         )
@@ -201,7 +217,46 @@ class AgingModel(mesa.Model):
             for cell in self.agents:
                 cell.cpgs = self._bernoulli_pattern()
 
+        # Every surviving cell founds its own lineage
+        for lineage_id, cell in enumerate(self.agents):
+            cell.lineage_id = lineage_id
+
         self.is_growing = False
+
+    # Moran bookkeeping ----------------------------------------------------------------------------
+
+    def random_agent(self):
+        """An agent chosen uniformly from the current population."""
+        agents = self.agents.to_list()
+        return agents[self.rng.integers(len(agents))]
+
+    def birth(self, parent, victim=None):
+        """
+        `parent` divides: a daughter of the same class with a copy of its CpGs and lineage replaces
+        `victim`. If no victim is given, it is chosen uniformly from the current population (the
+        parent included) before the daughter exists, so the newborn is never removed. The
+        population size is unchanged.
+        """
+        n_before = len(self.agents)
+        if victim is None:
+            victim = self.random_agent()
+        daughter = type(parent)(self, cpgs=parent.cpgs.copy(), lineage_id=parent.lineage_id)
+        victim.remove()
+        if self.debug:
+            assert len(self.agents) == n_before, "birth changed the population size"
+        return daughter
+
+    def death(self, agent):
+        """
+        `agent` dies and a copy of a parent chosen uniformly from the current population replaces
+        it. If the agent picks itself as the parent nothing changes, which keeps the parent pool
+        the same size as birth's victim pool (a neutral clone with p_duplicate == p_die does not
+        drift).
+        """
+        parent = self.random_agent()
+        if parent is agent:
+            return None
+        return self.birth(parent, victim=agent)
 
     def _n_clones_at_onset(self, n_cells):
         """Number of Cells converted at CHIP onset: prop_chip * n_cells, at least 1 if prop_chip > 0."""
@@ -211,9 +266,14 @@ class AgingModel(mesa.Model):
         return n_clones
 
     def _replace_with_clones(self, targets, clone_template):
-        """Replace each target Cell with a Clone carrying a copy of the template's CpGs."""
+        """
+        Replace each target Cell with a Clone carrying a copy of the template's CpGs. All Clones
+        created at onset share one new lineage id.
+        """
+        self.clone_lineage = self.target_population
+        self.clone_parent_lineage = clone_template.lineage_id
         for target in targets:
-            Clone(self, cpgs=clone_template.cpgs.copy())
+            Clone(self, cpgs=clone_template.cpgs.copy(), lineage_id=self.clone_lineage)
             target.remove()
 
     def trigger_chip_random(self):
@@ -243,6 +303,23 @@ class AgingModel(mesa.Model):
         sorted_cells = cell_agents.sort(key=mean_methylation, ascending=False)
         self._replace_with_clones(targets, clone_template=sorted_cells[0])
 
+    def _divide_all(self):
+        """
+        Every agent present at the start of this phase acts once, in random order. Agents removed
+        earlier in the step are skipped and newborns wait until the next step. Without turnover
+        only Clones act; that list is built and shuffled exactly as
+        `agents.select(agent_type=Clone).shuffle_do("divide")` would, so turnover-free runs keep
+        their original random stream.
+        """
+        if self.p_turnover == 0:
+            actors = [a for a in self.agents if isinstance(a, Clone)]
+        else:
+            actors = self.agents.to_list()
+        self.random.shuffle(actors)
+        for agent in actors:
+            if agent in self.agents:
+                agent.divide()
+
     def step(self):
         """Advances the simulation by one step."""
         self.datacollector.collect(self)
@@ -254,7 +331,7 @@ class AgingModel(mesa.Model):
             self.agents.shuffle_do("methylate")
         else:
             self.agents.shuffle_do("methylate")
-            self.agents.select(agent_type=Clone).shuffle_do("divide")
+            self._divide_all()
 
         if self.debug:
             assert_population_ok(self)

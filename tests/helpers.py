@@ -90,3 +90,9 @@ def assert_matches_golden(name, params, steps=GOLDEN_STEPS):
         check_dtype=False,
     )
     assert digest == golden_digest, f"final CpG state differs from golden {name}"
+
+# Golden-2 (captured after Phase 2): clone selection dynamics with the unified Moran step.
+GOLDEN_2 = {
+    f"g2_seed{seed}": dict(BASE_PARAMS, prop_chip=0.1, p_duplicate=0.3, p_die=0.3, rng=seed)
+    for seed in (1, 2, 3)
+}

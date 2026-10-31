@@ -266,3 +266,18 @@ def population_beta_bray_curtis(agentset, num_bins=10):
         return 0.0
         
     return numerator / denominator
+
+def population_lineage_count(agentset):
+    """Number of distinct lineages. NaN before lineages are assigned (growth phase)."""
+    ids = [a.lineage_id for a in agentset]
+    if not ids or min(ids) < 0:
+        return np.nan
+    return len(set(ids))
+
+
+def population_largest_lineage_fraction(agentset):
+    """Fraction of agents in the most common lineage. NaN before lineages are assigned."""
+    ids = np.array([a.lineage_id for a in agentset])
+    if ids.size == 0 or ids.min() < 0:
+        return np.nan
+    return np.bincount(ids).max() / ids.size

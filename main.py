@@ -153,6 +153,22 @@ def parse_arguments(argv=None):
         "phase, its daughter replacing a random agent (neutral Moran turnover). "
         "p_turnover + p_duplicate + p_die must be <= 1.",
     )
+    parser.add_argument(
+        "--drift-mode",
+        choices=("time", "division", "both"),
+        default="time",
+        help="'time': every agent drifts once per step. 'division': methylation changes only as "
+        "replication errors when a cell divides, and the rate flags/profile are per-division "
+        "error probabilities. 'both': per-step drift plus replication errors with the *_div "
+        "columns of the rate profile.",
+    )
+    parser.add_argument(
+        "--errors-on",
+        choices=("both", "daughter"),
+        default="both",
+        help="Which copies get replication errors at a division: parent and daughter, or the "
+        "daughter only.",
+    )
 
     # Per-CpG rates and per-site output
     parser.add_argument(
@@ -246,6 +262,8 @@ def print_banner(args, width=55):
     print_row("Clone duplication probability", args.p_duplicate)
     print_row("Clone removal probability", args.p_die)
     print_row("Turnover probability (all agents)", args.p_turnover)
+    print_row("Drift mode", args.drift_mode)
+    print_row("Replication errors on", args.errors_on)
     print("└" + "─" * width + "┘\n")
 
 
@@ -272,6 +290,10 @@ def build_params(args):
         params["init_mode"] = args.init_mode
     if args.p_turnover != 0.0:
         params["p_turnover"] = args.p_turnover
+    if args.drift_mode != "time":
+        params["drift_mode"] = args.drift_mode
+    if args.errors_on != "both":
+        params["errors_on"] = args.errors_on
     return params
 
 
@@ -291,6 +313,12 @@ def main(argv=None):
                 "--rate-profile is set, so these flags are ignored: "
                 + ", ".join(args.explicit_rate_flags)
             )
+
+    if args.drift_mode == "division" and args.p_turnover == 0:
+        warn(
+            "--drift-mode division with --p-turnover 0: normal cells stop drifting after the "
+            "growth phase, except when a cell is copied to replace a dying Clone (--p-die)."
+        )
 
     if not args.quiet:
         print_banner(args)

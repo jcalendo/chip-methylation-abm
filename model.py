@@ -16,6 +16,8 @@ from metrics import (
 from rates import RateProfile
 
 INIT_MODES = ("founder", "independent")
+DRIFT_MODES = ("time", "division", "both")
+ERRORS_ON = ("both", "daughter")
 
 
 def _check_prob(name, value):
@@ -59,6 +61,8 @@ class AgingModel(mesa.Model):
         rate_profile=None,
         init_mode="founder",
         sample_steps=(),
+        drift_mode="time",
+        errors_on="both",
         debug=False,
         rng=None,
     ):
@@ -73,14 +77,25 @@ class AgingModel(mesa.Model):
                 Must be a string, not an array: mesa.batch_run sweeps iterable parameters.
             init_mode: "founder" (the founder's pattern is copied to every cell) or "independent"
                 (at the end of growth every cell redraws each site from init_meth).
+            drift_mode: "time" (every agent drifts once per step), "division" (methylation changes
+                only as replication errors when a cell divides; the per-site rates are read as
+                per-division error probabilities), or "both" (per-step drift with the step rates
+                plus replication errors with the *_div rates).
+            errors_on: "both" (parent and daughter each get a round of replication errors at a
+                division) or "daughter" (only the daughter).
             sample_steps: steps at which to store per-site bulk beta in `site_snapshots`, keyed by
                 the same Step label as the DataCollector rows. Used by runner.py, not batch_run.
             debug: check population invariants at the end of every step.
         """
         super().__init__(rng=rng)
 
-        if init_mode not in INIT_MODES:
-            raise ValueError(f"init_mode ({init_mode!r}) must be one of {INIT_MODES}")
+        for name, value, allowed in [
+            ("init_mode", init_mode, INIT_MODES),
+            ("drift_mode", drift_mode, DRIFT_MODES),
+            ("errors_on", errors_on, ERRORS_ON),
+        ]:
+            if value not in allowed:
+                raise ValueError(f"{name} ({value!r}) must be one of {allowed}")
         for name, value in [
             ("p_duplicate", p_duplicate),
             ("p_die", p_die),
@@ -106,6 +121,8 @@ class AgingModel(mesa.Model):
         self.n_genes = n_genes
         self.n_cpgs = n_cpgs
         self.init_mode = init_mode
+        self.drift_mode = drift_mode
+        self.errors_on = errors_on
         self.p_duplicate = p_duplicate
         self.p_die = p_die
         self.p_turnover = p_turnover
@@ -214,8 +231,10 @@ class AgingModel(mesa.Model):
                 cell.remove()
 
         if self.init_mode == "independent":
+            # The redrawn genome starts a fresh error history; the division count is kept
             for cell in self.agents:
                 cell.cpgs = self._bernoulli_pattern()
+                cell.n_error_rounds = 0
 
         # Every surviving cell founds its own lineage
         for lineage_id, cell in enumerate(self.agents):
@@ -230,6 +249,26 @@ class AgingModel(mesa.Model):
         agents = self.agents.to_list()
         return agents[self.rng.integers(len(agents))]
 
+    def copy_agent(self, parent):
+        """
+        `parent` divides into itself and a daughter of the same class that inherits its CpGs,
+        lineage and counters. Both count the division. Outside time mode, replication errors are
+        applied after the copy: to the daughter, then to the parent unless errors_on="daughter".
+        """
+        parent.n_divisions += 1
+        daughter = type(parent)(
+            self,
+            cpgs=parent.cpgs.copy(),
+            lineage_id=parent.lineage_id,
+            n_divisions=parent.n_divisions,
+            n_error_rounds=parent.n_error_rounds,
+        )
+        if self.drift_mode != "time":
+            daughter.replicate_errors()
+            if self.errors_on == "both":
+                parent.replicate_errors()
+        return daughter
+
     def birth(self, parent, victim=None):
         """
         `parent` divides: a daughter of the same class with a copy of its CpGs and lineage replaces
@@ -240,7 +279,7 @@ class AgingModel(mesa.Model):
         n_before = len(self.agents)
         if victim is None:
             victim = self.random_agent()
-        daughter = type(parent)(self, cpgs=parent.cpgs.copy(), lineage_id=parent.lineage_id)
+        daughter = self.copy_agent(parent)
         victim.remove()
         if self.debug:
             assert len(self.agents) == n_before, "birth changed the population size"
@@ -273,7 +312,13 @@ class AgingModel(mesa.Model):
         self.clone_lineage = self.target_population
         self.clone_parent_lineage = clone_template.lineage_id
         for target in targets:
-            Clone(self, cpgs=clone_template.cpgs.copy(), lineage_id=self.clone_lineage)
+            Clone(
+                self,
+                cpgs=clone_template.cpgs.copy(),
+                lineage_id=self.clone_lineage,
+                n_divisions=clone_template.n_divisions,
+                n_error_rounds=clone_template.n_error_rounds,
+            )
             target.remove()
 
     def trigger_chip_random(self):
@@ -326,11 +371,14 @@ class AgingModel(mesa.Model):
         if self.steps in self.sample_steps:
             self.site_snapshots[self.steps] = self.snapshot()
 
+        time_drift = self.drift_mode != "division"
         if self.is_growing:
             self.agents.shuffle_do("duplicate")
-            self.agents.shuffle_do("methylate")
+            if time_drift:
+                self.agents.shuffle_do("methylate")
         else:
-            self.agents.shuffle_do("methylate")
+            if time_drift:
+                self.agents.shuffle_do("methylate")
             self._divide_all()
 
         if self.debug:

@@ -1,6 +1,7 @@
 import math
 
 import mesa
+import numpy as np
 
 from agents import Cell, Clone
 from metrics import (
@@ -9,6 +10,28 @@ from metrics import (
     population_meth_var,
     population_jsd,
 )
+
+
+def _check_prob(name, value):
+    if not 0.0 <= value <= 1.0:
+        raise ValueError(f"{name} ({value}) must be in [0, 1]")
+
+
+def assert_population_ok(model):
+    """
+    Check the population bookkeeping invariants. After the growth phase the population size must
+    equal the target, every agent id must be unique, and Cells + Clones must account for everyone.
+    """
+    agents = model.agents.to_list()
+    ids = [a.unique_id for a in agents]
+    assert len(ids) == len(set(ids)), "duplicate agent ids"
+    n_cells = sum(isinstance(a, Cell) for a in agents)
+    n_clones = sum(isinstance(a, Clone) for a in agents)
+    assert n_cells + n_clones == len(agents), "agents that are neither Cell nor Clone"
+    if not model.is_growing:
+        assert len(agents) == model.target_population, (
+            f"population size {len(agents)} != target {model.target_population}"
+        )
 
 
 class AgingModel(mesa.Model):
@@ -26,9 +49,28 @@ class AgingModel(mesa.Model):
         prop_chip,
         p_duplicate,
         p_die,
+        debug=False,
         rng=None,
     ):
         super().__init__(rng=rng)
+
+        for name, value in [
+            ("p_meth", p_meth),
+            ("p_unmeth", p_unmeth),
+            ("init_meth", init_meth),
+            ("p_meth_clone", p_meth_clone),
+            ("p_unmeth_clone", p_unmeth_clone),
+            ("p_duplicate", p_duplicate),
+            ("p_die", p_die),
+            ("prop_chip", prop_chip),
+        ]:
+            _check_prob(name, value)
+        if p_duplicate + p_die > 1.0:
+            raise ValueError(
+                f"p_duplicate ({p_duplicate}) + p_die ({p_die}) must be <= 1.0"
+            )
+        if n_agents < 1:
+            raise ValueError(f"n_agents ({n_agents}) must be >= 1")
 
         self.n_genes = n_genes
         self.n_cpgs = n_cpgs
@@ -42,6 +84,7 @@ class AgingModel(mesa.Model):
         self.chip_time = chip_time
         self.target_population = n_agents
         self.prop_chip = prop_chip
+        self.debug = debug
 
         # Compute growth phase steps needed to reach target population size
         self.growth_steps = math.ceil(math.log2(self.target_population))
@@ -60,7 +103,7 @@ class AgingModel(mesa.Model):
             n_cpgs=n_cpgs,
             p_meth=p_meth,
             p_unmeth=p_unmeth,
-            init_meth=init_meth,
+            cpgs=self._founder_pattern(),
         )
 
         self.schedule_event(self.end_growth_phase, at=self.growth_steps)
@@ -94,6 +137,20 @@ class AgingModel(mesa.Model):
             }
         )
 
+    def _founder_pattern(self):
+        """
+        Initial CpG state of the founder: exactly round(init_meth * total) methylated sites in random
+        positions. No random numbers are drawn when init_meth == 0.
+        """
+        shape = (self.n_genes, self.n_cpgs)
+        if self.init_meth == 0:
+            return np.zeros(shape, dtype=int)
+        total_cpgs = self.n_genes * self.n_cpgs
+        num_ones = int(round(self.init_meth * total_cpgs))
+        arr = np.concatenate((np.ones(num_ones), np.zeros(total_cpgs - num_ones)))
+        self.rng.shuffle(arr)
+        return arr.reshape(shape).astype(int)
+
     def end_growth_phase(self):
         """Prunes the population back down to a fixed number of agents"""
         current_cells = self.agents.select(agent_type=Cell)
@@ -106,23 +163,17 @@ class AgingModel(mesa.Model):
 
         self.is_growing = False
 
-    def trigger_chip_random(self):
-        """
-        Selects a random Cell and then copies it N times into a new CLonal population until 
-        the desired proportion of Cloness is created.
-        """
-        cell_agents = self.agents.select(agent_type=Cell)
-        n_cells = len(cell_agents)
+    def _n_clones_at_onset(self, n_cells):
+        """Number of Cells converted at CHIP onset: prop_chip * n_cells, at least 1 if prop_chip > 0."""
         n_clones = int(self.prop_chip * n_cells)
-
         if n_clones == 0 and self.prop_chip > 0:
             n_clones = 1
-    
-        targets = self.random.sample(list(cell_agents), n_clones)
-        clone_template = targets[0]
+        return n_clones
 
+    def _replace_with_clones(self, targets, clone_template):
+        """Replace each target Cell with a Clone carrying a copy of the template's CpGs."""
         for target in targets:
-            new_clone = Clone(
+            Clone(
                 self,
                 self.n_genes,
                 self.n_cpgs,
@@ -130,38 +181,36 @@ class AgingModel(mesa.Model):
                 self.p_unmeth_clone,
                 self.p_duplicate,
                 self.p_die,
+                cpgs=clone_template.cpgs.copy(),
             )
-            new_clone.cpgs = clone_template.cpgs.copy()
             target.remove()
+
+    def trigger_chip_random(self):
+        """
+        Selects a random Cell and then copies it N times into a new Clonal population until
+        the desired proportion of Clones is created.
+        """
+        cell_agents = self.agents.select(agent_type=Cell)
+        n_clones = self._n_clones_at_onset(len(cell_agents))
+        if n_clones == 0:
+            return
+
+        targets = self.random.sample(list(cell_agents), n_clones)
+        self._replace_with_clones(targets, clone_template=targets[0])
 
     def trigger_chip_highest_meth(self):
         """
-        Selects the Cell with the greatest mean methylation and then copies it N times into a new 
-        CLonal population until the desired proportion of Cloness is created.
+        Selects the Cell with the greatest mean methylation and then copies it N times into a new
+        Clonal population until the desired proportion of Clones is created.
         """
         cell_agents = self.agents.select(agent_type=Cell)
-        n_cells = len(cell_agents)
-        n_clones = int(self.prop_chip * n_cells)
+        n_clones = self._n_clones_at_onset(len(cell_agents))
+        if n_clones == 0:
+            return
 
-        if n_clones == 0 and self.prop_chip > 0:
-            n_clones = 1
-    
-        targets = self.random.sample(list(cell_agents), n_clones)   
+        targets = self.random.sample(list(cell_agents), n_clones)
         sorted_cells = cell_agents.sort(key=mean_methylation, ascending=False)
-        clone_template = sorted_cells[0]
-
-        for target in targets:
-            new_clone = Clone(
-                self,
-                self.n_genes,
-                self.n_cpgs,
-                self.p_meth_clone,
-                self.p_unmeth_clone,
-                self.p_duplicate,
-                self.p_die,
-            )
-            new_clone.cpgs = clone_template.cpgs.copy()
-            target.remove()
+        self._replace_with_clones(targets, clone_template=sorted_cells[0])
 
     def step(self):
         """Advances the simulation by one step."""
@@ -173,5 +222,6 @@ class AgingModel(mesa.Model):
         else:
             self.agents.shuffle_do("methylate")
             self.agents.select(agent_type=Clone).shuffle_do("divide")
-        
-        
+
+        if self.debug:
+            assert_population_ok(self)

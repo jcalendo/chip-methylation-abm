@@ -7,7 +7,7 @@ requires-python = "==3.13.*"
 dependencies = [
     "matplotlib>=3.10.8",
     "memory-profiler>=0.61.0",
-    "mesa[rec]>=3.5.0",
+    "mesa[rec]==3.5.0",
     "pandas>=3.0.1",
     "scipy>=1.17.1",
     "seaborn>=0.13.2",
@@ -16,5 +16,14 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "pytest>=9.2.0",
+    "pytest-timeout>=2.4.0",
     "ruff>=0.15.5",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "tests"]
+addopts = "-m 'not slow'"
+markers = ["slow: long-running statistical or performance tests (run with -m slow)"]
+filterwarnings = ["ignore::FutureWarning", "ignore::DeprecationWarning"]

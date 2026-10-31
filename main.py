@@ -103,13 +103,13 @@ def parse_arguments():
         "--p-duplicate",
         type=float,
         default=0.0,
-        help="Probability of a Clone duplicating.",
+        help="Probability of a Clone duplicating and replacing a random agent (Cell or Clone).",
     )
     parser.add_argument(
         "--p-die",
         type=float,
         default=0.0,
-        help="Probability of a Clone being replaced by a Cell.",
+        help="Probability of a Clone dying and being replaced by a copy of a random agent (Cell or Clone).",
     )
 
     # Program args
@@ -193,7 +193,8 @@ def main():
         display_progress=not args.quiet,
     )
 
-    results_df = pd.DataFrame(results)
+    # batch_run collects runs as they finish, so sort for a deterministic row order
+    results_df = pd.DataFrame(results).sort_values(["RunId", "Step"], kind="stable")
     results_df.to_csv(args.outfile, index=False, compression="gzip")
     
     if not args.quiet:

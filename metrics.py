@@ -30,7 +30,7 @@ def jsd_unmeth(agent):
     ref_vec = np.zeros(agent.n_cpgs + 1)
     ref_vec[0] = 1.0
 
-    return jensenshannon(freqs, ref_vec, base=2, axis=1) ** 2
+    return jensenshannon(freqs, ref_vec, base=2) ** 2
 
 
 def evenness(agent):
@@ -69,8 +69,8 @@ def emd_unmeth(agent):
 
 
 def population_meth_mean(agentset):
-    """Compute measurements across all genes"""
-    if len(agentset) < 2:
+    """Mean methylation across all agents, genes and CpGs. NaN only for an empty set."""
+    if len(agentset) == 0:
         return np.nan
 
     # Cell x gene x cpg array
@@ -163,7 +163,7 @@ def population_epigenetic_burden(agentset, threshold=0.10):
         return np.nan
 
     first_agent = next(iter(agentset))
-    baseline = first_agent.init_meth 
+    baseline = first_agent.model.init_meth
     
     population = np.array([a.cpgs for a in agentset])
     cell_means = np.mean(population, axis=(1, 2))
@@ -233,7 +233,7 @@ def population_beta_bray_curtis(agentset, num_bins=10):
         
     # Get the baseline state from the first agent in the set
     first_agent = next(iter(agentset))
-    baseline_meth = first_agent.init_meth
+    baseline_meth = first_agent.model.init_meth
 
     population = np.array([a.cpgs for a in agentset])
     cell_means = np.mean(population, axis=(1, 2))
@@ -243,9 +243,9 @@ def population_beta_bray_curtis(agentset, num_bins=10):
     current_freqs = current_counts / len(agentset)
     
     # Theoretical baseline distribution (all cells clustered at init_meth)
-    baseline_counts = np.zeros(num_bins)
-    baseline_bin_index = int(baseline_meth * (num_bins - 1))
-    baseline_counts[baseline_bin_index] = 1.0 
+    # Use the same binning as np.histogram so the baseline lands in the bin its value belongs to
+    baseline_counts, _ = np.histogram([baseline_meth], bins=num_bins, range=(0.0, 1.0))
+    baseline_counts = baseline_counts.astype(float)
     
     # Bray-Curtis calculation: sum(|A - B|) / sum(A + B)
     numerator = np.sum(np.abs(current_freqs - baseline_counts))

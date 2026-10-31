@@ -6,7 +6,7 @@ from pathlib import Path
 
 def plot_simulation_metrics(df: pd.DataFrame, output_path: str = "run_results.png"):
     """
-    Generates a 3-panel vertical stacked plot of simulation metrics.
+    Generates a 3-panel side-by-side (1x3) plot of simulation metrics.
     Overall, Cell, and Clone dynamics are overlaid using distinct colors.
     """
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
@@ -42,7 +42,7 @@ def plot_simulation_metrics(df: pd.DataFrame, output_path: str = "run_results.pn
         "Clone": "firebrick"
     }
     
-    # Create a 3x1 vertical stack with a shared X-axis
+    # Create a 1x3 row of panels with a shared X-axis
     fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(14, 6), sharex=True)
     
     for row_idx, config in enumerate(metrics_config):

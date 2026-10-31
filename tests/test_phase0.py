@@ -8,7 +8,14 @@ import pandas as pd
 import pytest
 
 from agents import Cell, Clone
-from helpers import GOLDEN_1, assert_matches_golden, cpgs_hash, make_model, run_model
+from helpers import (
+    GOLDEN_1,
+    GOLDEN_1_INIT,
+    assert_matches_golden,
+    cpgs_hash,
+    make_model,
+    run_model,
+)
 from metrics import (
     jsd_unmeth,
     population_beta_bray_curtis,
@@ -53,6 +60,12 @@ def test_no_legacy_global_rng():
 @pytest.mark.parametrize("name", sorted(GOLDEN_1))
 def test_golden_1(name):
     assert_matches_golden(name, GOLDEN_1[name])
+
+
+@pytest.mark.parametrize("name", sorted(GOLDEN_1_INIT))
+def test_golden_1_scalar_init_meth(name):
+    """Captured from the Phase 0 code: pins the exact-count founder pattern for init_meth > 0."""
+    assert_matches_golden(name, GOLDEN_1_INIT[name])
 
 
 # T0.4 ---------------------------------------------------------------------------------------------
@@ -107,7 +120,9 @@ def test_single_clone_mean_is_defined():
     after_onset = df.iloc[model.chip_time + 1 :]
     assert (after_onset["Clone_Count"] == 1).all()
     assert after_onset["Clone_Mean_Methylation"].notna().all()
-    assert after_onset["Clone_Methylation_Var"].isna().all()  # variance needs >= 2 agents
+    assert (
+        after_onset["Clone_Methylation_Var"].isna().all()
+    )  # variance needs >= 2 agents
 
 
 def test_jsd_unmeth_returns_scalar():

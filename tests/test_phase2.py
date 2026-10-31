@@ -21,10 +21,21 @@ def clone_fraction(model):
 def test_population_invariant_with_turnover(p_turnover, prop_chip):
     p_dup, p_die = (0.0, 0.0) if p_turnover == 1.0 else (0.2 * (1 - p_turnover),) * 2
     model = make_model(
-        p_turnover=p_turnover, prop_chip=prop_chip, p_duplicate=p_dup, p_die=p_die, debug=True
+        p_turnover=p_turnover,
+        prop_chip=prop_chip,
+        p_duplicate=p_dup,
+        p_die=p_die,
+        debug=True,
     )
-    df = run_model(model, 40)  # debug=True checks the invariant every step and in every birth
-    assert (df["Cell_Count"] + df["Clone_Count"]).iloc[model.growth_steps + 1 :].eq(64).all()
+    df = run_model(
+        model, 40
+    )  # debug=True checks the invariant every step and in every birth
+    assert (
+        (df["Cell_Count"] + df["Clone_Count"])
+        .iloc[model.growth_steps + 1 :]
+        .eq(64)
+        .all()
+    )
 
 
 def test_turnover_validation():
@@ -77,7 +88,9 @@ def test_moran_pools_are_symmetric():
     expected_dup = np.mean([0 if isinstance(v, Clone) else 1 for v in pools[-1]])
     assert expected_dup == pytest.approx(1 - c / n)
 
-    survivor = next(a for a in model.agents.select(agent_type=Clone) if a is not daughter)
+    survivor = next(
+        a for a in model.agents.select(agent_type=Clone) if a is not daughter
+    )
     state = model.agents.to_list()
     model.death(survivor)
     pool = pools[-1]
@@ -89,13 +102,59 @@ def test_moran_pools_are_symmetric():
     assert expected_die == pytest.approx(-(1 - c_now / len(pool)))
 
 
+def test_death_self_pick_changes_nothing():
+    model = make_model(prop_chip=0.25, chip_time=8, p_duplicate=0.2, p_die=0.2)
+    run_model(model, 10)
+    clone = model.agents.select(agent_type=Clone).to_list()[0]
+    before = {a.unique_id: (type(a), a.cpgs.copy(), a.lineage_id) for a in model.agents}
+    rng_state = model.rng.bit_generator.state
+    model.random_agent = lambda: clone  # force the self-pick
+    assert model.death(clone) is None
+    after = {a.unique_id: (type(a), a.cpgs, a.lineage_id) for a in model.agents}
+    assert after.keys() == before.keys()
+    for uid, (cls, cpgs, lineage) in before.items():
+        assert after[uid][0] is cls and after[uid][2] == lineage
+        np.testing.assert_array_equal(after[uid][1], cpgs)
+    assert model.rng.bit_generator.state == rng_state
+
+
+def realised_clone_change(event, n=5, c=2):
+    """Average realised change in clone count over every possible Moran pick, by enumeration."""
+    changes = []
+    for pick in range(n):
+        model = make_model(n_agents=n, chip_time=4, prop_chip=c / n, **TINY)
+        run_model(model, 5)
+        agents = model.agents.to_list()
+        clone = next(a for a in agents if isinstance(a, Clone))
+        model.random_agent = lambda: agents[pick]
+        c0 = len(model.agents.select(agent_type=Clone))
+        getattr(model, event)(clone)
+        changes.append(len(model.agents.select(agent_type=Clone)) - c0)
+    return np.mean(changes)
+
+
+def test_moran_realised_changes_are_symmetric():
+    # duplicate: +1 unless the victim is a clone; die: -1 unless the replacement is a clone copy,
+    # and nothing when the clone picks itself. Both average to +/-(1 - C/N).
+    assert realised_clone_change("birth") == pytest.approx(1 - 2 / 5)
+    assert realised_clone_change("death") == pytest.approx(-(1 - 2 / 5))
+
+
+def test_rate_sum_tolerance():
+    # 0.33 + 0.56 + 0.11 is 1.0000000000000002 in floating point
+    model = make_model(prop_chip=0.2, p_turnover=0.33, p_duplicate=0.56, p_die=0.11)
+    run_model(model, 30)
+
+
 # T2.5 ---------------------------------------------------------------------------------------------
 @pytest.mark.slow
 def test_neutral_lineage_fixation_probability():
     n, runs, focal = 20, 1000, 5
     fixed = 0
     for seed in range(runs):
-        model = make_model(n_agents=n, chip_time=10_000, p_turnover=1.0, rng=seed, **TINY)
+        model = make_model(
+            n_agents=n, chip_time=10_000, p_turnover=1.0, rng=seed, **TINY
+        )
         run_model(model, model.growth_steps + 1)
         for cell in model.agents.to_list()[:focal]:
             cell.lineage_id = -2
@@ -157,7 +216,11 @@ def per_site_run_means(p_turnover, runs):
     betas = []
     for seed in range(runs):
         model = make_model(
-            p_meth=0.02, p_unmeth=0.005, p_turnover=p_turnover, chip_time=10_000, rng=seed
+            p_meth=0.02,
+            p_unmeth=0.005,
+            p_turnover=p_turnover,
+            chip_time=10_000,
+            rng=seed,
         )
         run_model(model, 40)
         betas.append(bulk_beta(model.agents, model.rates.n_sites))
@@ -178,7 +241,9 @@ def test_turnover_does_not_bias_expected_beta():
 # T2.9 ---------------------------------------------------------------------------------------------
 def test_lineage_ids():
     model = make_model(prop_chip=0.1, p_turnover=0.2)
-    run_model(model, model.growth_steps)  # end_growth_phase runs right after step growth_steps
+    run_model(
+        model, model.growth_steps
+    )  # end_growth_phase runs right after step growth_steps
     ids = [a.lineage_id for a in model.agents]
     assert sorted(ids) == list(range(64))
     run_model(model, model.chip_time - model.growth_steps)

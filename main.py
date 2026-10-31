@@ -218,6 +218,12 @@ def parse_arguments(argv=None):
 
     if args.sample_steps and not args.site_beta_out:
         parser.error("--sample-steps requires --site-beta-out")
+    outside = [s for s in args.sample_steps if not 1 <= s <= args.steps]
+    if outside:
+        parser.error(
+            f"--sample-steps {outside} outside the run's Step labels 1..{args.steps} "
+            "(the end of the run is always saved as step 'final')"
+        )
 
     # Record which scalar rate flags were given explicitly, then fill in defaults
     args.explicit_rate_flags = [
@@ -286,6 +292,10 @@ def build_params(args):
     }
     if args.rate_profile:
         params["rate_profile"] = args.rate_profile
+        # The scalar rates are not used; record them as NaN so the output CSV does not imply
+        # values the simulation never used
+        for name in SCALAR_RATE_DEFAULTS:
+            params[name] = float("nan")
     if args.init_mode != "founder":
         params["init_mode"] = args.init_mode
     if args.p_turnover != 0.0:
@@ -314,6 +324,16 @@ def main(argv=None):
                 + ", ".join(args.explicit_rate_flags)
             )
 
+    if args.drift_mode == "both":
+        from rates import DIV_FIELDS
+
+        if rate_profile is None or rate_profile.is_zero(*DIV_FIELDS):
+            warn(
+                "--drift-mode both without non-zero *_div columns in --rate-profile adds no "
+                "replication errors; the output equals --drift-mode time."
+            )
+    if args.errors_on != "both" and args.drift_mode == "time":
+        warn("--errors-on has no effect with --drift-mode time (no replication errors).")
     if args.drift_mode == "division" and args.p_turnover == 0:
         warn(
             "--drift-mode division with --p-turnover 0: normal cells stop drifting after the "

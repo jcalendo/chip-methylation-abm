@@ -59,7 +59,8 @@ class HematopoieticAgent(mesa.Agent):
     def replicate_errors(self):
         """
         Apply one round of replication errors using this agent's division rates for the model's
-        drift mode. Draws nothing when those rates are all zero.
+        drift mode. Draws nothing when those rates are all zero (the round is still counted in
+        n_error_rounds, so expected methylation follows beta_k with k = n_error_rounds).
         """
         names = self.DIVISION_RATES[self.model.drift_mode]
         self.n_error_rounds += 1
@@ -110,7 +111,7 @@ class Clone(HematopoieticAgent):
         p_birth = m.p_turnover + m.p_duplicate
         division_type = m.rng.choice(
             ["neutral", "duplicate", "die"],
-            p=[1.0 - (m.p_turnover + m.p_duplicate + m.p_die), p_birth, m.p_die],
+            p=[max(0.0, 1.0 - (m.p_turnover + m.p_duplicate + m.p_die)), p_birth, m.p_die],
         )
 
         if division_type == "duplicate":

@@ -46,11 +46,15 @@ In `division` mode a cell's drift depends on how often its lineage divides. Norm
 
 ### Per-CpG rates
 
-`--rate-profile rates.csv` gives every CpG its own gain, loss and starting-methylation probability, for normal cells and clones separately. The CSV has one row per site, filled into the `n_genes` $\times$ `n_cpgs` array in row-major order, with columns `site_id, p_meth, p_unmeth, init_meth, p_meth_clone, p_unmeth_clone, site_class` and the optional per-division columns `p_meth_div, p_unmeth_div, p_meth_div_clone, p_unmeth_div_clone`. When a profile is given, the scalar rate flags are ignored, with a warning. A profile can be drawn from distributions in a JSON spec (see the docstring of `generate_profile` in `rates.py`):
+`--rate-profile rates.csv` gives every CpG its own gain, loss and starting-methylation probability, for normal cells and clones separately. The CSV has one row per site, filled into the `n_genes` $\times$ `n_cpgs` array in row-major order, with columns `site_id, p_meth, p_unmeth, init_meth, p_meth_clone, p_unmeth_clone, site_class` and the optional per-division columns `p_meth_div, p_unmeth_div, p_meth_div_clone, p_unmeth_div_clone`. When a profile is given, the scalar rate flags are ignored, with a warning, and recorded as `NaN` in the output CSV. If every site has the same `init_meth`, the founder gets exactly `round(init_meth × n_sites)` methylated sites, as with `--init-meth`; otherwise each founder site is methylated independently with its own `init_meth` probability.
+
+A profile can be drawn from distributions in a JSON spec. [docs/example_spec.json](docs/example_spec.json) has two site classes (191 hypermethylating and 614 hypomethylating sites):
 
 ```
-uv run rates.py generate spec.json --seed 1 --n-genes 805 --n-cpgs 1 -o rates.csv
+uv run rates.py generate docs/example_spec.json --seed 1 --n-genes 805 --n-cpgs 1 -o rates.csv
 ```
+
+Each class needs `fraction` (a relative weight), `p_meth`, `p_unmeth` and `init_meth`, and can set `site_class`, `p_meth_clone`, `p_unmeth_clone` (default: the cell values for the same site), `p_meth_div`, `p_unmeth_div` (default 0) and `p_meth_div_clone`, `p_unmeth_div_clone` (default: the cell `*_div` values). Each rate is a distribution: `{"dist": "fixed", "value": v}`, `uniform` or `loguniform` (`low`, `high`), `lognormal` (`median`, `sigma` of the log), or `beta` (`a`, `b`); values are clipped to [0, 1].
 
 Every cell starts as a copy of one founder (`--init-mode founder`), so at the start each site is either methylated in every cell or in none. `--init-mode independent` instead redraws every site of every cell from `init_meth` at the end of the growth phase, which lets a population start at an intermediate bulk methylation.
 
@@ -236,7 +240,7 @@ uv run main.py --drift-mode division --p-turnover 0.2 --p-meth 0.01 --p-meth-clo
 ### Per-CpG rates with per-site output
 
 ```{bash}
-uv run rates.py generate spec.json --seed 1 --n-genes 805 --n-cpgs 1 -o rates.csv
+uv run rates.py generate docs/example_spec.json --seed 1 --n-genes 805 --n-cpgs 1 -o rates.csv
 uv run main.py --rate-profile rates.csv --n-genes 805 --n-cpgs 1 --init-mode independent \
   --sample-steps 40,80 --site-beta-out site_beta.npz
 ```

@@ -79,11 +79,16 @@ class RateProfile:
             object.__setattr__(self, name, arr)
             self._all_zero[name] = not arr.any()
 
-        site_class = (
-            np.zeros(shape, dtype=int)
-            if self.site_class is None
-            else np.array(self.site_class, dtype=int)
-        )
+        raw = np.zeros(shape) if self.site_class is None else np.asarray(self.site_class)
+        flat = raw.ravel().astype(float)
+        bad = np.flatnonzero(np.isnan(flat) | (flat < 0) | (flat != np.round(flat)))
+        if bad.size:
+            i = bad[0]
+            raise ValueError(
+                f"column 'site_class', row {i + 1} (site index {i}): value {flat[i]} "
+                "is not a non-negative integer label"
+            )
+        site_class = raw.astype(int)
         if site_class.shape != shape:
             raise ValueError(f"site_class has shape {site_class.shape}, expected {shape}")
         site_class.flags.writeable = False
@@ -157,7 +162,7 @@ class RateProfile:
             if name in df.columns:
                 kwargs[name] = df[name].to_numpy(dtype=float).reshape(shape)
         if "site_class" in df.columns:
-            kwargs["site_class"] = df["site_class"].to_numpy(dtype=int).reshape(shape)
+            kwargs["site_class"] = df["site_class"].to_numpy(dtype=float).reshape(shape)
         # A constant init_meth column means the same as the scalar --init-meth flag
         init = kwargs["init_meth"]
         kwargs["init_is_scalar"] = bool(np.all(init == init.flat[0]))
@@ -218,8 +223,12 @@ def generate_profile(spec, n_genes, n_cpgs, seed):
             {"site_class": 2, "fraction": 614, ...}
         ]}
 
-    Fractions are relative weights. Clone rates default to the cell values drawn for the same site;
-    *_div rates default to 0. Sites are assigned to classes in a random order.
+    Required keys per class: fraction (a relative weight), p_meth, p_unmeth, init_meth. Optional:
+    site_class (default 0), p_meth_clone / p_unmeth_clone (default: the cell values drawn for the
+    same site), p_meth_div / p_unmeth_div (default 0) and p_meth_div_clone / p_unmeth_div_clone
+    (default: the cell *_div values for the same site). Distributions: fixed (value), uniform
+    (low, high), loguniform (low, high), lognormal (median, sigma of log), beta (a, b); values
+    are clipped to [0, 1]. Sites are assigned to classes in a random order.
     """
     rng = np.random.default_rng(seed)
     n_sites = n_genes * n_cpgs
@@ -241,8 +250,15 @@ def generate_profile(spec, n_genes, n_cpgs, seed):
             drawn[name] = (
                 _draw(cls_spec[name], count, rng) if name in cls_spec else drawn[fallback]
             )
-        for name in DIV_FIELDS:
+        for name in ("p_meth_div", "p_unmeth_div"):
             drawn[name] = _draw(cls_spec[name], count, rng) if name in cls_spec else 0.0
+        for name, fallback in (
+            ("p_meth_div_clone", "p_meth_div"),
+            ("p_unmeth_div_clone", "p_unmeth_div"),
+        ):
+            drawn[name] = (
+                _draw(cls_spec[name], count, rng) if name in cls_spec else drawn[fallback]
+            )
         for name, values in drawn.items():
             columns[name][idx] = values
 

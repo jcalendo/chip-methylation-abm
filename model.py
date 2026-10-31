@@ -73,7 +73,7 @@ class AgingModel(mesa.Model):
                 Clones divide with p_turnover + p_duplicate, so s = p_duplicate - p_die is the
                 advantage relative to normal cells.
             rate_profile: None to broadcast the scalar rate arguments to every CpG, or the path of a
-                per-CpG rate CSV (see rates.py), in which case the scalar rate arguments are ignored.
+                per-CpG rate CSV (see rates.py), in which case the scalar rate arguments are ignored (they may be NaN).
                 Must be a string, not an array: mesa.batch_run sweeps iterable parameters.
             init_mode: "founder" (the founder's pattern is copied to every cell) or "independent"
                 (at the end of growth every cell redraws each site from init_meth).
@@ -103,7 +103,8 @@ class AgingModel(mesa.Model):
             ("prop_chip", prop_chip),
         ]:
             _check_prob(name, value)
-        if p_turnover + p_duplicate + p_die > 1.0:
+        # Small tolerance: e.g. 0.33 + 0.56 + 0.11 evaluates to 1.0000000000000002
+        if p_turnover + p_duplicate + p_die > 1.0 + 1e-12:
             raise ValueError(
                 f"p_turnover ({p_turnover}) + p_duplicate ({p_duplicate}) + p_die ({p_die}) "
                 "must be <= 1.0"

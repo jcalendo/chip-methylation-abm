@@ -1,6 +1,7 @@
 """Phase 1: per-CpG rate profiles, initialization modes, per-site output, runner."""
 
 import json
+from pathlib import Path
 
 import mesa
 import numpy as np
@@ -21,7 +22,9 @@ def write_profile(path, n_genes, n_cpgs, **arrays):
     """Write a rate CSV; any array not given is zero. Scalars are broadcast."""
     shape = (n_genes, n_cpgs)
     fields = ("p_meth", "p_unmeth", "init_meth", "p_meth_clone", "p_unmeth_clone")
-    values = {f: np.broadcast_to(np.asarray(arrays.get(f, 0.0), float), shape) for f in fields}
+    values = {
+        f: np.broadcast_to(np.asarray(arrays.get(f, 0.0), float), shape) for f in fields
+    }
     RateProfile(**values, site_class=arrays.get("site_class")).to_csv(path)
     return str(path)
 
@@ -58,6 +61,17 @@ def test_csv_missing_column(tmp_path):
     path = write_profile(tmp_path / "r.csv", 10, 1)
     pd.read_csv(path).drop(columns="init_meth").to_csv(path, index=False)
     with pytest.raises(ValueError, match="init_meth"):
+        RateProfile.from_csv(path, 10, 1)
+
+
+@pytest.mark.parametrize("bad_label", [np.nan, 1.7, -1])
+def test_csv_bad_site_class(tmp_path, bad_label):
+    path = write_profile(tmp_path / "r.csv", 10, 1)
+    df = pd.read_csv(path)
+    df["site_class"] = df["site_class"].astype(float)
+    df.loc[3, "site_class"] = bad_label
+    df.to_csv(path, index=False)
+    with pytest.raises(ValueError, match=r"column 'site_class', row 4"):
         RateProfile.from_csv(path, 10, 1)
 
 
@@ -122,15 +136,29 @@ def test_per_site_drift_matches_theory(tmp_path):
     k = steps - model.growth_steps
     expected = expected_beta(init, a, b, k)
     observed = bulk_beta(model.agents, n_sites)
-    se = np.sqrt(expected * (1 - expected) / n_agents)  # cells are independent after the redraw
+    se = np.sqrt(
+        expected * (1 - expected) / n_agents
+    )  # cells are independent after the redraw
     within = np.abs(observed - expected) <= 4 * se
     assert within.mean() >= 0.95
     assert spearmanr(expected, observed).statistic > 0.95
 
+    # mean(z^2) is about 1 at the right k and grows quickly when k is off, so this pins the number
+    # of drift rounds. It must reject k = steps (ignoring the growth phase) and k - 6.
+    def mean_z2(k_):
+        e = expected_beta(init, a, b, k_)
+        return np.mean(((observed - e) / np.sqrt(e * (1 - e) / n_agents)) ** 2)
+
+    limit = 1 + 4 * np.sqrt(2 / n_sites)
+    assert mean_z2(k) < limit
+    assert mean_z2(steps) > limit and mean_z2(k - 6) > limit
+
 
 # T1.6 ---------------------------------------------------------------------------------------------
 def test_clone_rates_apply_only_to_clones():
-    model = make_model(prop_chip=0.25, p_meth=0.02, p_meth_clone=0.0, p_unmeth_clone=0.0)
+    model = make_model(
+        prop_chip=0.25, p_meth=0.02, p_meth_clone=0.0, p_unmeth_clone=0.0
+    )
     run_model(model, model.chip_time + 1)  # clones exist after step chip_time
     clones = list(model.agents.select(agent_type=Clone))
     assert clones
@@ -160,7 +188,11 @@ def test_independent_mode_matches_init_meth(tmp_path):
     init = rng.uniform(0.1, 0.9, n_sites)
     path = write_profile(tmp_path / "r.csv", n_sites, 1, init_meth=init[:, None])
     model = make_model(
-        n_agents=n_agents, n_genes=n_sites, n_cpgs=1, rate_profile=path, init_mode="independent"
+        n_agents=n_agents,
+        n_genes=n_sites,
+        n_cpgs=1,
+        rate_profile=path,
+        init_mode="independent",
     )
     run_model(model, model.growth_steps + 2)
     beta = bulk_beta(model.agents, n_sites)
@@ -215,7 +247,8 @@ def test_snapshots_and_npz_round_trip(tmp_path):
         assert 0 < f < 1
         np.testing.assert_allclose(
             data[f"run{run}_stepfinal_all"],
-            f * data[f"run{run}_stepfinal_clone"] + (1 - f) * data[f"run{run}_stepfinal_cell"],
+            f * data[f"run{run}_stepfinal_clone"]
+            + (1 - f) * data[f"run{run}_stepfinal_cell"],
         )
         assert np.isnan(data[f"run{run}_step10_clone"]).all()  # before CHIP onset
     df = pd.read_csv(out_csv)
@@ -289,6 +322,35 @@ def test_generator_is_deterministic(tmp_path):
     assert np.all(profile.p_meth_div == 0)
 
 
+def test_generator_clone_div_rates_fall_back_to_cell_div_rates():
+    spec = {
+        "classes": [
+            {
+                "fraction": 1,
+                "p_meth": {"dist": "fixed", "value": 0.01},
+                "p_unmeth": {"dist": "fixed", "value": 0.0},
+                "init_meth": {"dist": "fixed", "value": 0.0},
+                "p_meth_div": {"dist": "uniform", "low": 0.001, "high": 0.01},
+            }
+        ]
+    }
+    profile = generate_profile(spec, 50, 1, seed=3)
+    np.testing.assert_array_equal(profile.p_meth_div_clone, profile.p_meth_div)
+    assert profile.p_meth_div.min() > 0
+    assert np.all(profile.p_unmeth_div_clone == 0)
+
+
+def test_example_spec_generates():
+    spec = json.loads(
+        Path(__file__)
+        .resolve()
+        .parent.parent.joinpath("docs/example_spec.json")
+        .read_text()
+    )
+    profile = generate_profile(spec, 805, 1, seed=1)
+    assert np.bincount(profile.site_class.ravel()).tolist()[1:] == [191, 614]
+
+
 def test_generator_seed_changes_rates():
     a = generate_profile(SPEC, 805, 1, seed=1)
     b = generate_profile(SPEC, 805, 1, seed=2)
@@ -310,3 +372,23 @@ def test_rate_profile_warns_about_ignored_flags(tmp_path, capsys):
     err = capsys.readouterr().err
     assert "--p-meth" in err and "ignored" in err
     assert "--p-unmeth" not in err
+    # the ignored scalar rates are recorded as NaN, not as values that were never used
+    df = pd.read_csv(tmp_path / "o.csv.gz")
+    assert df["p_meth"].isna().all() and df["init_meth"].isna().all()
+
+
+@pytest.mark.parametrize("steps", ["0,10", "10,41"])
+def test_sample_steps_outside_run_rejected(tmp_path, steps):
+    import main
+
+    with pytest.raises(SystemExit):
+        main.parse_arguments(
+            [
+                "--steps",
+                "40",
+                "--sample-steps",
+                steps,
+                "--site-beta-out",
+                str(tmp_path / "b.npz"),
+            ]
+        )

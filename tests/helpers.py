@@ -75,7 +75,9 @@ def save_golden(name, df, digest):
 
 
 def load_golden(name):
-    df = pd.read_csv(GOLDEN_DIR / f"{name}.csv", index_col=0, float_precision="round_trip")
+    df = pd.read_csv(
+        GOLDEN_DIR / f"{name}.csv", index_col=0, float_precision="round_trip"
+    )
     digest = json.loads((GOLDEN_DIR / "hashes.json").read_text())[name]
     return df, digest
 
@@ -91,8 +93,27 @@ def assert_matches_golden(name, params, steps=GOLDEN_STEPS):
     )
     assert digest == golden_digest, f"final CpG state differs from golden {name}"
 
+
 # Golden-2 (captured after Phase 2): clone selection dynamics with the unified Moran step.
 GOLDEN_2 = {
-    f"g2_seed{seed}": dict(BASE_PARAMS, prop_chip=0.1, p_duplicate=0.3, p_die=0.3, rng=seed)
+    f"g2_seed{seed}": dict(
+        BASE_PARAMS, prop_chip=0.1, p_duplicate=0.3, p_die=0.3, rng=seed
+    )
     for seed in (1, 2, 3)
+}
+
+# Golden-1 with a scalar init_meth > 0 (README "different drift" rates). Captured from the
+# Phase 0 code (commit d5c1e81) to pin the original exact-count founder pattern.
+GOLDEN_1_INIT = {
+    f"g1_init0.25_seed{seed}": dict(
+        BASE_PARAMS,
+        init_meth=0.25,
+        p_meth=0.001,
+        p_unmeth=1e-6,
+        p_meth_clone=0.01,
+        p_unmeth_clone=0.001,
+        prop_chip=0.1,
+        rng=seed,
+    )
+    for seed in (1, 2)
 }

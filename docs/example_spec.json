@@ -1,0 +1,44 @@
+{
+  "classes": [
+    {
+      "site_class": 1,
+      "fraction": 191,
+      "p_meth": {
+        "dist": "loguniform",
+        "low": 0.001,
+        "high": 0.01
+      },
+      "p_unmeth": {
+        "dist": "fixed",
+        "value": 1e-06
+      },
+      "init_meth": {
+        "dist": "beta",
+        "a": 1,
+        "b": 9
+      }
+    },
+    {
+      "site_class": 2,
+      "fraction": 614,
+      "p_meth": {
+        "dist": "fixed",
+        "value": 1e-06
+      },
+      "p_unmeth": {
+        "dist": "lognormal",
+        "median": 0.005,
+        "sigma": 0.5
+      },
+      "init_meth": {
+        "dist": "uniform",
+        "low": 0.7,
+        "high": 0.9
+      },
+      "p_meth_clone": {
+        "dist": "fixed",
+        "value": 0.0
+      }
+    }
+  ]
+}

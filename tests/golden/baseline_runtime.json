@@ -1,0 +1,5 @@
+{
+  "phase0_seconds": 2.072442240001692,
+  "config": "N=1000, 805x1 sites, 80 steps, prop_chip=0.1, p_dup=p_die=0.2, time mode",
+  "machine": "pop-os"
+}

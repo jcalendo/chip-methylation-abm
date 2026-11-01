@@ -30,7 +30,7 @@ def jsd_unmeth(agent):
     ref_vec = np.zeros(agent.n_cpgs + 1)
     ref_vec[0] = 1.0
 
-    return jensenshannon(freqs, ref_vec, base=2, axis=1) ** 2
+    return jensenshannon(freqs, ref_vec, base=2) ** 2
 
 
 def evenness(agent):
@@ -68,9 +68,20 @@ def emd_unmeth(agent):
 # Population-level metrics -----------------------------------------------------------------------
 
 
+def bulk_beta(agentset, n_sites):
+    """
+    Per-site bulk methylation (beta): the mean of each CpG across agents, flattened to one value
+    per site in row-major (gene, cpg) order. All NaN for an empty set.
+    """
+    if len(agentset) == 0:
+        return np.full(n_sites, np.nan)
+    population = np.array([a.cpgs for a in agentset])
+    return population.mean(axis=0).ravel()
+
+
 def population_meth_mean(agentset):
-    """Compute measurements across all genes"""
-    if len(agentset) < 2:
+    """Mean methylation across all agents, genes and CpGs. NaN only for an empty set."""
+    if len(agentset) == 0:
         return np.nan
 
     # Cell x gene x cpg array
@@ -163,7 +174,7 @@ def population_epigenetic_burden(agentset, threshold=0.10):
         return np.nan
 
     first_agent = next(iter(agentset))
-    baseline = first_agent.init_meth 
+    baseline = float(np.mean(first_agent.model.rates.init_meth))
     
     population = np.array([a.cpgs for a in agentset])
     cell_means = np.mean(population, axis=(1, 2))
@@ -233,7 +244,7 @@ def population_beta_bray_curtis(agentset, num_bins=10):
         
     # Get the baseline state from the first agent in the set
     first_agent = next(iter(agentset))
-    baseline_meth = first_agent.init_meth
+    baseline_meth = float(np.mean(first_agent.model.rates.init_meth))
 
     population = np.array([a.cpgs for a in agentset])
     cell_means = np.mean(population, axis=(1, 2))
@@ -243,9 +254,9 @@ def population_beta_bray_curtis(agentset, num_bins=10):
     current_freqs = current_counts / len(agentset)
     
     # Theoretical baseline distribution (all cells clustered at init_meth)
-    baseline_counts = np.zeros(num_bins)
-    baseline_bin_index = int(baseline_meth * (num_bins - 1))
-    baseline_counts[baseline_bin_index] = 1.0 
+    # Use the same binning as np.histogram so the baseline lands in the bin its value belongs to
+    baseline_counts, _ = np.histogram([baseline_meth], bins=num_bins, range=(0.0, 1.0))
+    baseline_counts = baseline_counts.astype(float)
     
     # Bray-Curtis calculation: sum(|A - B|) / sum(A + B)
     numerator = np.sum(np.abs(current_freqs - baseline_counts))
@@ -255,3 +266,18 @@ def population_beta_bray_curtis(agentset, num_bins=10):
         return 0.0
         
     return numerator / denominator
+
+def population_lineage_count(agentset):
+    """Number of distinct lineages. NaN before lineages are assigned (growth phase)."""
+    ids = [a.lineage_id for a in agentset]
+    if not ids or min(ids) < 0:
+        return np.nan
+    return len(set(ids))
+
+
+def population_largest_lineage_fraction(agentset):
+    """Fraction of agents in the most common lineage. NaN before lineages are assigned."""
+    ids = np.array([a.lineage_id for a in agentset])
+    if ids.size == 0 or ids.min() < 0:
+        return np.nan
+    return np.bincount(ids).max() / ids.size
